@@ -1,4 +1,4 @@
-// vim: ts=8 sw=2 smarttab
+// vim: ts=2 sw=2 smarttab
 
 #include "hashtree.h"
 #include "unit_test.h"
@@ -8,6 +8,20 @@ using namespace cohort;
 
 namespace
 {
+	int test_tree_depth()
+	{
+		// width=2
+		test_check_equal(hash_tree<2>().tree_depth(1), 1);
+		test_check_equal(hash_tree<2>().tree_depth(2), 2);
+		test_check_equal(hash_tree<2>().tree_depth(3), 3);
+		test_check_equal(hash_tree<2>().tree_depth(4), 3);
+		test_check_equal(hash_tree<2>().tree_depth(5), 4);
+		test_check_equal(hash_tree<2>().tree_depth(6), 4);
+		test_check_equal(hash_tree<2>().tree_depth(7), 4);
+		test_check_equal(hash_tree<2>().tree_depth(8), 4);
+		return 0;
+	}
+
 	int test_tree_size()
 	{
 		// width=2
@@ -76,7 +90,7 @@ namespace
 		test_check_equal(tree_size<255>()(6), 1082448806656);
 		test_check_equal(tree_size<255>()(7), 276024445697281);
 		test_check_equal(tree_size<255>()(8), 70386233652806656);
-		test_check_equal(tree_size<255>()(9), 17948489581465697281);
+		test_check_equal(tree_size<255>()(9), 17948489581465697281ULL);
 		// width=0x7FFFFFFF
 		test_check_equal(tree_size<0x7FFFFFFF>()(0), 0);
 		test_check_equal(tree_size<0x7FFFFFFF>()(1), 1);
@@ -90,81 +104,93 @@ namespace
 		return 0;
 	}
 
-	int test_find_leaf()
+	int test_tree_root()
 	{
 		// width=2
-		test_check_equal(hash_tree<2>().find_leaf(0), 0);
-		test_check_equal(hash_tree<2>().find_leaf(1), 1);
-		test_check_equal(hash_tree<2>().find_leaf(2), 3);
-		test_check_equal(hash_tree<2>().find_leaf(3), 4);
-		test_check_equal(hash_tree<2>().find_leaf(4), 7);
-		test_check_equal(hash_tree<2>().find_leaf(5), 8);
-		test_check_equal(hash_tree<2>().find_leaf(6), 10);
-		test_check_equal(hash_tree<2>().find_leaf(7), 11);
-		test_check_equal(hash_tree<2>().find_leaf(0xF), 26);
-		test_check_equal(hash_tree<2>().find_leaf(0xFF), 502);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFF), 8178);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFF), 131054);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFF), 2097130);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFF), 33554406);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFFF), 536870882);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFFFF), 8589934558);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFFFFF), 137438953434);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFFFFFF), 2199023255510);
-		test_check_equal(hash_tree<2>().find_leaf(0xFFFFFFFFFFF), 35184372088786);
-		test_check_equal(hash_tree<2>().find_leaf(0x7FFFFFFFFFFF), 281474976710607);
-		// width=3
-		test_check_equal(hash_tree<3>().find_leaf(0), 0);
-		test_check_equal(hash_tree<3>().find_leaf(1), 1);
-		test_check_equal(hash_tree<3>().find_leaf(2), 2);
-		test_check_equal(hash_tree<3>().find_leaf(3), 4);
-		test_check_equal(hash_tree<3>().find_leaf(4), 5);
-		test_check_equal(hash_tree<3>().find_leaf(5), 6);
-		test_check_equal(hash_tree<3>().find_leaf(6), 8);
-		test_check_equal(hash_tree<3>().find_leaf(7), 9);
-		test_check_equal(hash_tree<3>().find_leaf(0xF), 21);
-		test_check_equal(hash_tree<3>().find_leaf(0xFF), 381);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFF), 6138);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFF), 98297);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFF), 1572856);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFF), 25165818);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFF), 402653173);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFF), 6442450931);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFF), 103079215094);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFF), 1649267441649);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFF), 26388279066608);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFFF), 422212465065970);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFFFF), 6755399441055724);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFFFFF), 108086391056891883);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFFFFFF), 1729382256910270440);
-		test_check_equal(hash_tree<3>().find_leaf(0xFFFFFFFFFFFFFFFF), 9223372036854775783);
-		// width=4
-		test_check_equal(hash_tree<4>().find_leaf(0), 0);
-		test_check_equal(hash_tree<4>().find_leaf(1), 1);
-		test_check_equal(hash_tree<4>().find_leaf(2), 2);
-		test_check_equal(hash_tree<4>().find_leaf(3), 3);
-		test_check_equal(hash_tree<4>().find_leaf(4), 5);
-		test_check_equal(hash_tree<4>().find_leaf(5), 6);
-		test_check_equal(hash_tree<4>().find_leaf(6), 7);
-		test_check_equal(hash_tree<4>().find_leaf(7), 8);
-		test_check_equal(hash_tree<4>().find_leaf(0xF), 18);
-		test_check_equal(hash_tree<4>().find_leaf(0xFF), 336);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFF), 5454);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFF), 87372);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFF), 1398090);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFFF), 22369608);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFFFF), 357913926);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFFFFF), 5726623044);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFFFFFF), 91625968962);
-		test_check_equal(hash_tree<4>().find_leaf(0xFFFFFFFFFF), 1466015503680);
-		test_check_equal(hash_tree<4>().find_leaf(0x7FFFFFFFFFF), 11728124029588);
+		test_check_equal(hash_tree<2>().tree_root(1), 0);
+		test_check_equal(hash_tree<2>().tree_root(2), 2);
+		test_check_equal(hash_tree<2>().tree_root(3), 6);
+		test_check_equal(hash_tree<2>().tree_root(4), 14);
+		return 0;
+	}
+
+	int test_update2_full()
+	{
+		blockset blocks;
+		for (uint64_t i = 0; i < 16; i++)
+			blocks.insert(i);
+
+		test_check_equal(hash_tree<2>().update(blocks, 16), 30);
+		return 0;
+	}
+
+	int test_update2_sparse()
+	{
+		blockset blocks;
+		blocks.insert(4);
+		blocks.insert(5);
+		blocks.insert(6);
+		blocks.insert(19);
+		blocks.insert(22);
+		blocks.insert(23);
+
+		test_check_equal(hash_tree<2>().update(blocks, 24), 17);
+		return 0;
+	}
+
+	int test_update2_big()
+	{
+		blockset block0;
+		block0.insert(0);
+		test_check_equal(hash_tree<2>().update(block0, 0x80000000), 31);
+
+		blockset block7FFFFFFF;
+		block7FFFFFFF.insert(0x7FFFFFFF);
+		test_check_equal(hash_tree<2>().update(block7FFFFFFF, 0x80000000), 31);
+
+		blockset block80000000;
+		block80000000.insert(0x80000000);
+		test_check_equal(hash_tree<2>().update(block80000000, 0x80000001), 32);
+		return 0;
+	}
+
+	int test_update2()
+	{
+		test_check_equal(test_update2_full(), 0);
+		test_check_equal(test_update2_sparse(), 0);
+		test_check_equal(test_update2_big(), 0);
+		return 0;
+	}
+
+	int test_update4_full()
+	{
+		blockset blocks;
+		for (uint64_t i = 0; i < 16; i++)
+			blocks.insert(i);
+
+		test_check_equal(hash_tree<4>().update(blocks, 16), 20);
+		return 0;
+	}
+
+	int test_update4()
+	{
+		test_check_equal(test_update4_full(), 0);
+		return 0;
+	}
+
+	int test_update()
+	{
+		test_check_equal(test_update2(), 0);
+		test_check_equal(test_update4(), 0);
 		return 0;
 	}
 }
 
 int main(int argc, char *argv[])
 {
+	test_require_equal(test_tree_depth(), 0);
 	test_require_equal(test_tree_size(), 0);
-	test_require_equal(test_find_leaf(), 0);
+	test_require_equal(test_tree_root(), 0);
+	test_require_equal(test_update(), 0);
 	return 0;
 }

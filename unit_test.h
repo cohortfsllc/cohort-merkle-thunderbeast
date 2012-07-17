@@ -17,7 +17,7 @@
 
 #define test_check_equal(expression, expected) \
 	do { \
-		auto result = (expression); \
+		__typeof((expression)) result = (expression); \
 		if (result != expected) \
 		{ \
 			std::cout << __FILE__ << "(" << __LINE__ << "): warning '" \
@@ -63,7 +63,7 @@
 
 #define test_require_equal(expression, expected) \
 	do { \
-		auto result = (expression); \
+		__typeof((expression)) result = (expression); \
 		if (result != expected) \
 		{ \
 			std::cout << "error at " << __FILE__ << ":" << __LINE__ << " '" \
