@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <iostream>
 #include <set>
-#include <algorithm>
 
 
 namespace cohort {
@@ -64,97 +63,26 @@ namespace cohort {
 		class hash_tree {
 			public:
 				// return the minimum depth required to hold the given number of leaves
-				uint64_t tree_depth(uint64_t leaves) const
+				static uint64_t depth(uint64_t leaves)
 				{
 					return 1 + static_cast<uint64_t>(std::ceil(
 								logn<NodeWidth>(static_cast<double>(leaves))));
 				}
 
+				static uint64_t size(uint64_t depth)
+				{
+					return tree_size<NodeWidth>()(depth);
+				}
+
 				// return the root node index, given the total number of leaves
-				uint64_t tree_root(uint64_t leaves) const
+				static uint64_t root(uint64_t leaves)
 				{
 					return tree_size<NodeWidth>()(leaves) - 1;
 				}
 
-				uint64_t hash_offset(uint64_t node, unsigned index)
+				static uint64_t hash_offset(uint64_t node, unsigned index)
 				{
 					return (node * NodeWidth + index) * HashSize;
-				}
-
-				unsigned update(uint64_t node, uint64_t depth,
-						blockset::const_iterator dstart, blockset::const_iterator dend,
-						uint64_t bstart, uint64_t bend)
-				{
-					unsigned count = 0;
-					const std::string indent(2 * depth, ' ');
-
-					// base case
-					if (depth == 1)
-					{
-						if (bend - bstart != NodeWidth)
-							std::cerr << indent << "error: leaf node " << node
-								<< " with " << bend - bstart << " blocks!" << std::endl;
-
-						for (blockset::const_iterator dirty = dstart; dirty != dend; ++dirty)
-						{
-							uint64_t position = *dirty - bstart;
-							std::cout << indent << "block " << *dirty
-								<< " hash written to node " << node << "." << position
-								<< " at offset " << hash_offset(node, position) << std::endl;
-							count++;
-						}
-						return count;
-					}
-
-					// distance between child nodes
-					const uint64_t dnodes = tree_size<NodeWidth>()(depth - 1);
-					uint64_t child = node - 1 - (NodeWidth - 1) * dnodes;
-					// total number of blocks under each child
-					const uint64_t dblocks = powi(NodeWidth, depth - 1);
-
-					uint64_t children[NodeWidth] = { 0 };
-					for (unsigned i = 0; i < NodeWidth; i++)
-					{
-						//auto lower = blocks.lower_bound(bstart);
-						blockset::const_iterator lower = std::find_if(dstart, dend,
-								std::bind2nd(std::greater_equal<uint64_t>(), bstart));
-						//auto upper = blocks.upper_bound(bstart + dblocks - 1);
-						typedef blockset::const_reverse_iterator rev;
-						blockset::const_iterator upper = std::find_if(rev(dend), rev(dstart),
-								std::bind2nd(std::less<uint64_t>(), bstart + dblocks)).base();
-						if (lower != upper)
-						{
-							count += update(child, depth - 1,
-									lower, upper, bstart, bstart + dblocks);
-
-							children[i] = child + 1;
-						}
-
-						child += dnodes;
-						bstart += dblocks;
-					}
-
-					for (unsigned i = 0; i < NodeWidth; i++)
-					{
-						if (children[i])
-						{
-							std::cout << indent << "node " << children[i] - 1
-								<< " hash written to node " << node << "." << i
-								<< " at offset " << hash_offset(node, i) << std::endl;
-							count++;
-						}
-					}
-					return count;
-				}
-
-				unsigned update(const blockset &blocks, uint64_t maxblocks)
-				{
-					uint64_t leaves = maxblocks / NodeWidth +
-						(maxblocks % NodeWidth ? 1 : 0);
-					uint64_t depth = tree_depth(leaves);
-
-					return update(tree_root(depth), depth,
-							blocks.begin(), blocks.end(), 0, leaves - 1);
 				}
 		};
 
