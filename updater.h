@@ -4,122 +4,186 @@
 #define COHORT_UPDATER_H
 
 #include "hashtree.h"
+#include "hash_file.h"
+#include "hasher.h"
+
+#include <iostream>
+#include <set>
 #include <stack>
 #include <algorithm>
 
 
 namespace cohort {
 
-	template <unsigned NodeWidth, unsigned HashSize=20>
-		class updater {
-			private:
-				typedef hash_tree<NodeWidth, HashSize> tree;
-				typedef blockset::const_iterator iter;
-				typedef blockset::const_reverse_iterator rev;
+	// updater input: a set of dirty blocks
+	typedef std::set<uint64_t> blockset;
 
-				struct update
+	// updater: perform a depth-first traversal of the tree, ignoring
+	//  nodes that don't contain any dirty blocks.
+	class updater {
+		private:
+			const hash_tree &tree;
+			hash_file &file;
+			hasher &hash;
+
+			typedef blockset::const_iterator iter;
+			typedef blockset::const_reverse_iterator rev;
+
+			struct update
+			{
+				iter dstart, dend; // bounds of dirty block set
+				uint64_t bstart, bend; // bounds of all blocks covered by this node's subtree
+				uint64_t node, parent;
+				uint64_t depth;
+				uint64_t progress; // number of children processed
+				uint64_t dirty; // bitmask of children traversed. XXX: only supports k <= 64
+				uint8_t position; // child's position under parent node [0, k-1]
+			};
+			typedef std::stack<struct update> update_stack;
+
+			void hash_node(const struct update &node)
+			{
+				uint64_t read_offset = hasher::DIGEST_SIZE * node.node * tree.k;
+				uint64_t write_offset = hasher::DIGEST_SIZE *
+					(node.parent * tree.k + node.position);
+
+				std::cout << std::string(2*node.depth, ' ')
+					<< "node " << node.node << " at " << read_offset
+					<< " hash written to node " << node.parent << "." << (uint32_t)node.position
+					<< " at offset " << write_offset << std::endl;
+
+				hash.init();
+				hash.process(file.read(read_offset), tree.k * hasher::DIGEST_SIZE);
+				hash.finish(file.write(write_offset));
+			}
+
+			void hash_block(uint64_t block, unsigned position, const struct update &node)
+			{
+				uint64_t write_offset = hasher::DIGEST_SIZE *
+					(node.node * tree.k + position);
+
+				std::cout << "block " << block
+					<< " hash written to node " << node.node << "." << position
+					<< " at offset " << write_offset << std::endl;
+
+				unsigned char *buffer = file.write(write_offset);
+				std::fill(buffer, buffer + hasher::DIGEST_SIZE, block & 0xFF);
+			}
+
+		public:
+			updater(const hash_tree &tree, hash_file &file, hasher &hash)
+				: tree(tree), file(file), hash(hash)
+			{
+			}
+
+			unsigned update(const blockset &blocks, uint64_t maxblocks)
+			{
+				uint64_t leaves = maxblocks / tree.k +
+					(maxblocks % tree.k ? 1 : 0);
+				unsigned count = 0;
+
+				// initialize the stack and push the root node
+				update_stack stack;
+
+				struct update root;
+				root.dstart = blocks.begin();
+				root.dend = blocks.end();
+				root.bstart = 0;
+				root.bend = leaves - 1;
+				root.depth = tree.depth(leaves);
+				root.node = tree.root(root.depth);
+				root.parent = root.node + 1;
+				root.progress = 0;
+				root.dirty = 0;
+				root.position = 0;
+				stack.push(root);
+
+				// make sure the file can hold the entire hash tree
+				file.resize(hasher::DIGEST_SIZE * (root.parent * tree.k + 1));
+
+				while (!stack.empty())
 				{
-					iter dstart, dend; // bounds of dirty block set
-					uint64_t bstart, bend; // bounds of all blocks covered by this node's subtree
-					uint64_t node;
-					uint64_t depth;
-					uint64_t progress; // number of children processed
-					uint64_t parent;
-					unsigned position; // child's position under parent node
-				};
-				typedef std::stack<struct update> update_stack;
+					struct update &node = stack.top();
 
-			public:
-				static unsigned update(const blockset &blocks, uint64_t maxblocks)
-				{
-					uint64_t leaves = maxblocks / NodeWidth +
-						(maxblocks % NodeWidth ? 1 : 0);
-					uint64_t depth = tree::depth(leaves);
-					uint64_t root = tree::root(depth);
-					unsigned count = 0;
-
-					// initialize the stack with the root node
-					update_stack stack;
-					stack.push({ blocks.begin(), blocks.end(),
-							0, leaves - 1, root, depth, 0, root + 1, 0 });
-					size_t highest_stack = stack.size();
-
-					while (!stack.empty())
+					// base case
+					if (node.depth == 1)
 					{
-						struct update &node = stack.top();
+						if (node.bend - node.bstart != tree.k)
+							std::cerr << std::string(2*node.depth, ' ')
+								<< "error: leaf node " << node.node
+								<< " with " << node.bend - node.bstart << " blocks!" << std::endl;
 
-						// base case
-						if (node.depth == 1)
+						for (iter dirty = node.dstart; dirty != node.dend; ++dirty)
 						{
-							if (node.bend - node.bstart != NodeWidth)
-								std::cerr << std::string(2*node.depth, ' ')
-									<< "error: leaf node " << node.node
-									<< " with " << node.bend - node.bstart << " blocks!" << std::endl;
+							hash_block(*dirty, *dirty - node.bstart, node);
+							count++;
+						}
 
-							for (iter dirty = node.dstart; dirty != node.dend; ++dirty)
+						stack.pop();
+					}
+					else
+					{
+						struct update child;
+						child.depth = node.depth - 1;
+						child.parent = node.node;
+						child.progress = 0;
+						child.dirty = 0;
+
+						// distance between child nodes
+						const uint64_t dnodes = tree.size(child.depth);
+
+						if (node.progress == tree.k)
+						{
+							// all child nodes have been processed
+							for (child.position = 0; child.position < tree.k; child.position++)
 							{
-								uint64_t position = *dirty - node.bstart;
-								std::cout << std::string(2*node.depth, ' ')
-								 	<< "block " << *dirty
-									<< " hash written to node " << node.node << "." << position
-									<< " at offset " << tree::hash_offset(node.node, position) << std::endl;
-								count++;
+								// update hash for any dirty children
+								if (node.dirty & (1ULL << child.position))
+								{
+									child.node = child.parent - 1 - dnodes *
+										(tree.k - child.position - 1);
+									hash_node(child);
+									count++;
+								}
 							}
 
 							stack.pop();
+							continue;
 						}
-						else if (node.progress == NodeWidth)
+
+						// total number of blocks under each child
+						const uint64_t dblocks = math::powi(tree.k, child.depth);
+
+						for (; node.progress < tree.k; node.progress++)
 						{
-							std::cout << std::string(2*node.depth, ' ') << "node " << node.node
-								<< " hash written to node " << node.node << "." << node.position
-								<< " at offset " << tree::hash_offset(node.node, node.position) << std::endl;
-							count++;
+							child.position = node.progress;
+							child.node = child.parent - 1 - dnodes *
+								(tree.k - node.progress - 1);
 
-							stack.pop();
-						}
-						else
-						{
-							struct update child;
-							child.depth = node.depth - 1;
-							child.parent = node.node;
-							child.progress = 0;
+							child.bstart = node.bstart + node.progress * dblocks;
+							child.bend = child.bstart + dblocks;
 
-							// distance between child nodes
-							const uint64_t dnodes = tree::size(child.depth);
-							// total number of blocks under each child
-							const uint64_t dblocks = powi(NodeWidth, child.depth);
+							child.dstart = std::find_if(node.dstart, node.dend,
+									std::bind2nd(std::greater_equal<uint64_t>(), child.bstart));
+							child.dend = std::find_if(rev(node.dend), rev(node.dstart),
+									std::bind2nd(std::less<uint64_t>(), child.bend)).base();
 
-							for (; node.progress < NodeWidth; node.progress++)
+							if (child.dstart != child.dend)
 							{
-								child.position = node.progress;
-								child.node = child.parent - 1 - dnodes *
-									(NodeWidth - node.progress - 1);
-
-								child.bstart = node.bstart + node.progress * dblocks;
-								child.bend = child.bstart + dblocks;
-
-								child.dstart = std::find_if(node.dstart, node.dend,
-										std::bind2nd(std::greater_equal<uint64_t>(), child.bstart));
-								child.dend = std::find_if(rev(node.dend), rev(node.dstart),
-										std::bind2nd(std::less<uint64_t>(), child.bend)).base();
-
-								if (child.dstart != child.dend)
-								{
-									std::cout << std::string(2*node.depth, ' ')
-										<< "(node " << child.parent
-										<< " pushing child " << child.node << ")" << std::endl;
-									stack.push(child);
-									highest_stack = std::max(highest_stack, stack.size());
-									node.progress++;
-									break;
-								}
+								stack.push(child);
+								node.dirty |= (1ULL << node.progress);
+								node.progress++;
+								break;
 							}
 						}
 					}
-					std::cout << "highest stack: " << highest_stack << std::endl;
-					return count;
 				}
-		};
+
+				// write final hash of root node
+				hash_node(root);
+				return count;
+			}
+	};
 
 }
 
