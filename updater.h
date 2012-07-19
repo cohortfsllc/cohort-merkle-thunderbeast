@@ -34,20 +34,19 @@ namespace cohort {
 				iter dstart, dend; // bounds of dirty block set
 				uint64_t bstart, bend; // bounds of all blocks covered by this node's subtree
 				uint64_t node, parent;
-				uint64_t depth;
-				uint64_t progress; // number of children processed
 				uint64_t dirty; // bitmask of children traversed. XXX: only supports k <= 64
+				uint8_t progress; // number of children processed
 				uint8_t position; // child's position under parent node [0, k-1]
 			};
 			typedef std::stack<struct update> update_stack;
 
-			void hash_node(const struct update &node)
+			void hash_node(const struct update &node, uint64_t depth)
 			{
 				uint64_t read_offset = hasher::DIGEST_SIZE * node.node * tree.k;
 				uint64_t write_offset = hasher::DIGEST_SIZE *
 					(node.parent * tree.k + node.position);
 
-				std::cout << std::string(2*node.depth, ' ')
+				std::cout << std::string(2*depth, ' ')
 					<< "node " << node.node << " at " << read_offset
 					<< " hash written to node " << node.parent << "." << (uint32_t)node.position
 					<< " at offset " << write_offset << std::endl;
@@ -78,8 +77,9 @@ namespace cohort {
 
 			unsigned update(const blockset &blocks, uint64_t maxblocks)
 			{
-				uint64_t leaves = maxblocks / tree.k +
+				const uint64_t leaves = maxblocks / tree.k +
 					(maxblocks % tree.k ? 1 : 0);
+				uint64_t depth = tree.depth(leaves);
 				unsigned count = 0;
 
 				// initialize the stack and push the root node
@@ -90,8 +90,7 @@ namespace cohort {
 				root.dend = blocks.end();
 				root.bstart = 0;
 				root.bend = leaves - 1;
-				root.depth = tree.depth(leaves);
-				root.node = tree.root(root.depth);
+				root.node = tree.root(depth);
 				root.parent = root.node + 1;
 				root.progress = 0;
 				root.dirty = 0;
@@ -106,10 +105,10 @@ namespace cohort {
 					struct update &node = stack.top();
 
 					// base case
-					if (node.depth == 1)
+					if (depth == 1)
 					{
 						if (node.bend - node.bstart != tree.k)
-							std::cerr << std::string(2*node.depth, ' ')
+							std::cerr << std::string(2*depth, ' ')
 								<< "error: leaf node " << node.node
 								<< " with " << node.bend - node.bstart << " blocks!" << std::endl;
 
@@ -119,18 +118,18 @@ namespace cohort {
 							count++;
 						}
 
+						depth++;
 						stack.pop();
 					}
 					else
 					{
 						struct update child;
-						child.depth = node.depth - 1;
 						child.parent = node.node;
 						child.progress = 0;
 						child.dirty = 0;
 
 						// distance between child nodes
-						const uint64_t dnodes = tree.size(child.depth);
+						const uint64_t dnodes = tree.size(depth - 1);
 
 						if (node.progress == tree.k)
 						{
@@ -142,17 +141,18 @@ namespace cohort {
 								{
 									child.node = child.parent - 1 - dnodes *
 										(tree.k - child.position - 1);
-									hash_node(child);
+									hash_node(child, depth - 1);
 									count++;
 								}
 							}
 
+							depth++;
 							stack.pop();
 							continue;
 						}
 
 						// total number of blocks under each child
-						const uint64_t dblocks = math::powi(tree.k, child.depth);
+						const uint64_t dblocks = math::powi(tree.k, depth - 1);
 
 						for (; node.progress < tree.k; node.progress++)
 						{
@@ -170,6 +170,7 @@ namespace cohort {
 
 							if (child.dstart != child.dend)
 							{
+								depth--;
 								stack.push(child);
 								node.dirty |= (1ULL << node.progress);
 								node.progress++;
@@ -180,7 +181,7 @@ namespace cohort {
 				}
 
 				// write final hash of root node
-				hash_node(root);
+				hash_node(root, depth);
 				return count;
 			}
 	};
