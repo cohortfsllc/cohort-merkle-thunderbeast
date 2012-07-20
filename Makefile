@@ -2,7 +2,7 @@ CC=g++
 CFLAGS=-I. -std=c++0x
 LDFLAGS=-lcrypto
 
-HEADERS=hashtree.h hash_file.h hasher.h updater.h
+HEADERS=hash_tree.h hash_file.h hasher.h updater.h block_reader.h
 
 %.o: %.cpp $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)

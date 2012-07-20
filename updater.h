@@ -3,7 +3,7 @@
 #ifndef COHORT_UPDATER_H
 #define COHORT_UPDATER_H
 
-#include "hashtree.h"
+#include "hash_tree.h"
 #include "block_reader.h"
 #include "hash_file.h"
 #include "hasher.h"

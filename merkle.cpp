@@ -1,16 +1,16 @@
 // vim: ts=2 sw=2 smarttab
 
-#include "updater.h"
-#include "block_reader.h"
-
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
 #include <cstring>
 
+#include "updater.h"
+#include "block_reader.h"
 
-int usage(char *name)
+
+static int usage(char *name)
 {
 	std::cout << "Usage:\n"
 		<< name << " write <input file> <output file> [blocksize] [tree width]\n"
@@ -51,12 +51,12 @@ static int hash_write(char *input, char *output,
 		return 4;
 	}
 
-	cohort::block_reader reader(fdin, stat.st_size, blocksize);
+	cohort::block_reader blocks(fdin, stat.st_size, blocksize);
 	cohort::hash_file file(fdout, cohort::hasher::DIGEST_SIZE, tree_width);
 	cohort::hash_tree tree(tree_width);
-	cohort::updater updater(tree, reader, file);
+	cohort::updater updater(tree, blocks, file);
 
-	bool result = updater.update(0, reader.count()-1, reader.count());
+	bool result = updater.update(0, blocks.count()-1, blocks.count());
 
 	close(fdout);
 	close(fdin);
@@ -71,6 +71,7 @@ static int hash_write(char *input, char *output,
 
 static int hash_verify(char *input, char *hash)
 {
+	std::cerr << "verify not implemented" << std::endl;
 	return 0;
 }
 

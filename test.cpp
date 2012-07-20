@@ -110,71 +110,6 @@ namespace
 		test_check_equal(hash_tree(3).root(1), 0);
 		return 0;
 	}
-
-	int test_update2_full()
-	{
-		hash_tree tree2(2);
-		hash_file file("test.update2.full");
-		hasher hash;
-
-		test_check_equal(updater(tree2, file, hash).update(0, 15, 16), 30);
-		return 0;
-	}
-
-	int test_update2_sparse()
-	{
-		hash_tree tree2(2);
-		hash_file file("test.update2.sparse");
-		hasher hash;
-
-		test_check_equal(updater(tree2, file, hash).update(0, 8, 24), 20);
-		test_check_equal(updater(tree2, file, hash).update(7, 10, 24), 12);
-		test_check_equal(updater(tree2, file, hash).update(17, 23, 24), 15);
-		return 0;
-	}
-
-	int test_update2_big()
-	{
-		hash_tree tree2(2);
-		hash_file file("test.update2.big");
-		hasher hash;
-
-		test_check_equal(updater(tree2, file, hash).update(0, 0, 0x80000000), 31);
-		test_check_equal(updater(tree2, file, hash).update(0x7FFFFFFF, 0x7FFFFFFF, 0x80000000), 31);
-		test_check_equal(updater(tree2, file, hash).update(0x80000000, 0x80000000, 0x80000001), 32);
-		return 0;
-	}
-
-	int test_update2()
-	{
-		test_check_equal(test_update2_full(), 0);
-		test_check_equal(test_update2_sparse(), 0);
-		//test_check_equal(test_update2_big(), 0);
-		return 0;
-	}
-
-	int test_update4_full()
-	{
-		hash_tree tree4(4);
-		hash_file file("test.update4.full");
-		hasher hash;
-
-		test_check_equal(updater(tree4, file, hash).update(0, 15, 16), 20);
-		return 0;
-	}
-
-	int test_update4()
-	{
-		test_check_equal(test_update4_full(), 0);
-		return 0;
-	}
-
-	int test_update()
-	{
-		test_check_equal(test_update2(), 0);
-		test_check_equal(test_update4(), 0);
-		return 0;
-	}
 }
 
 int main(int argc, char *argv[])
@@ -182,6 +117,5 @@ int main(int argc, char *argv[])
 	test_require_equal(test_depth(), 0);
 	test_require_equal(test_tree_size(), 0);
 	test_require_equal(test_tree_root(), 0);
-	test_require_equal(test_update(), 0);
 	return 0;
 }
