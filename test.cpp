@@ -1,7 +1,6 @@
 // vim: ts=2 sw=2 smarttab
 
-#include "updater.h"
-#include "hasher.h"
+#include "hash_tree.h"
 #include "unit_test.h"
 
 
