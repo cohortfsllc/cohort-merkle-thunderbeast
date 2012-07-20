@@ -60,6 +60,12 @@ namespace cohort {
 				// the root node has the highest index of its subtree
 				return size(depth) - 1;
 			}
+
+			// return the number of leaves, given the depth of the tree
+			uint64_t leaves(uint64_t depth) const
+			{
+				return math::powi(k, depth);
+			}
 	};
 
 }
