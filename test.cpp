@@ -117,11 +117,7 @@ namespace
 		hash_file file("test.update2.full");
 		hasher hash;
 
-		blockset blocks;
-		for (uint64_t i = 0; i < 16; i++)
-			blocks.insert(i);
-
-		test_check_equal(updater(tree2, file, hash).update(blocks, 16), 30);
+		test_check_equal(updater(tree2, file, hash).update(0, 15, 16), 30);
 		return 0;
 	}
 
@@ -131,15 +127,9 @@ namespace
 		hash_file file("test.update2.sparse");
 		hasher hash;
 
-		blockset blocks;
-		blocks.insert(4);
-		blocks.insert(5);
-		blocks.insert(6);
-		blocks.insert(19);
-		blocks.insert(22);
-		blocks.insert(23);
-
-		test_check_equal(updater(tree2, file, hash).update(blocks, 24), 17);
+		test_check_equal(updater(tree2, file, hash).update(0, 8, 24), 20);
+		test_check_equal(updater(tree2, file, hash).update(7, 10, 24), 12);
+		test_check_equal(updater(tree2, file, hash).update(17, 23, 24), 15);
 		return 0;
 	}
 
@@ -149,17 +139,9 @@ namespace
 		hash_file file("test.update2.big");
 		hasher hash;
 
-		blockset block0;
-		block0.insert(0);
-		test_check_equal(updater(tree2, file, hash).update(block0, 0x80000000), 31);
-
-		blockset block7FFFFFFF;
-		block7FFFFFFF.insert(0x7FFFFFFF);
-		test_check_equal(updater(tree2, file, hash).update(block7FFFFFFF, 0x80000000), 31);
-
-		blockset block80000000;
-		block80000000.insert(0x80000000);
-		test_check_equal(updater(tree2, file, hash).update(block80000000, 0x80000001), 32);
+		test_check_equal(updater(tree2, file, hash).update(0, 0, 0x80000000), 31);
+		test_check_equal(updater(tree2, file, hash).update(0x7FFFFFFF, 0x7FFFFFFF, 0x80000000), 31);
+		test_check_equal(updater(tree2, file, hash).update(0x80000000, 0x80000000, 0x80000001), 32);
 		return 0;
 	}
 
@@ -177,11 +159,7 @@ namespace
 		hash_file file("test.update4.full");
 		hasher hash;
 
-		blockset blocks;
-		for (uint64_t i = 0; i < 16; i++)
-			blocks.insert(i);
-
-		test_check_equal(updater(tree4, file, hash).update(blocks, 16), 20);
+		test_check_equal(updater(tree4, file, hash).update(0, 15, 16), 20);
 		return 0;
 	}
 
