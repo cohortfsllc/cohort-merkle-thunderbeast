@@ -29,6 +29,7 @@ namespace cohort {
 			typedef blockset::const_iterator iter;
 			typedef blockset::const_reverse_iterator rev;
 
+			// state kept on a stack to simulate a recursive algorithm
 			struct update
 			{
 				iter dstart, dend; // bounds of dirty block set
@@ -40,6 +41,7 @@ namespace cohort {
 			};
 			typedef std::stack<struct update> update_stack;
 
+			// read a node and write its hash to the parent
 			void hash_node(const struct update &node, uint64_t depth)
 			{
 				uint64_t read_offset = hasher::DIGEST_SIZE * node.node * tree.k;
@@ -56,13 +58,14 @@ namespace cohort {
 				hash.finish(file.write(write_offset));
 			}
 
-			void hash_block(uint64_t block, unsigned position, const struct update &node)
+			// read a block and write its hash to the given node
+			void hash_block(uint64_t block, uint8_t position, const struct update &node)
 			{
 				uint64_t write_offset = hasher::DIGEST_SIZE *
 					(node.node * tree.k + position);
 
 				std::cout << "block " << block
-					<< " hash written to node " << node.node << "." << position
+					<< " hash written to node " << node.node << "." << (uint32_t)position
 					<< " at offset " << write_offset << std::endl;
 
 				unsigned char *buffer = file.write(write_offset);
