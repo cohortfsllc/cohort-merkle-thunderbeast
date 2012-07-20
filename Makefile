@@ -3,16 +3,20 @@ CFLAGS=-I. -std=c++0x
 LDFLAGS=-lcrypto
 
 HEADERS=hashtree.h hash_file.h hasher.h updater.h
-OBJS=test.o
 
 %.o: %.cpp $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-runtests: $(OBJS)
+all: merkle runtests
+
+merkle: merkle.o
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+
+runtests: test.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 test: runtests
 	./runtests
 
 clean:
-	rm runtests *.o
+	rm merkle runtests *.o

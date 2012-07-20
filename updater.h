@@ -4,11 +4,12 @@
 #define COHORT_UPDATER_H
 
 #include "hashtree.h"
+#include "block_reader.h"
 #include "hash_file.h"
 #include "hasher.h"
 
 #include <iostream>
-#include <set>
+#include <vector>
 #include <stack>
 #include <algorithm>
 
@@ -20,9 +21,16 @@ namespace cohort {
 	class updater {
 		private:
 			const hash_tree &tree;
+			block_reader &reader;
 			hash_file &file;
-			hasher &hash;
 
+		public:
+			updater(const hash_tree &tree, block_reader &reader, hash_file &file)
+				: tree(tree), reader(reader), file(file)
+			{
+			}
+
+		private:
 			// state kept on a stack to simulate a recursive algorithm
 			struct update
 			{
@@ -36,7 +44,7 @@ namespace cohort {
 			typedef std::stack<struct update> update_stack;
 
 			// read a node and write its hash to the parent
-			void hash_node(const struct update &node, uint64_t depth)
+			bool hash_node(const struct update &node, uint64_t depth)
 			{
 				uint64_t read_offset = hasher::DIGEST_SIZE * node.node * tree.k;
 				uint64_t write_offset = hasher::DIGEST_SIZE *
@@ -47,13 +55,22 @@ namespace cohort {
 					<< " hash written to node " << node.parent << "." << (uint32_t)node.position
 					<< " at offset " << write_offset << std::endl;
 
-				hash.init();
-				hash.process(file.read(read_offset), tree.k * hasher::DIGEST_SIZE);
-				hash.finish(file.write(write_offset));
+				// read the hashes from the child node
+				const unsigned char *inbuf = file.read(read_offset);
+				if (inbuf == NULL)
+					return false;
+
+				hasher hash;
+				hash.process(inbuf, hasher::DIGEST_SIZE * tree.k);
+
+				// write the hash to the parent node
+				unsigned char outbuf[hasher::DIGEST_SIZE];
+				hash.finish(outbuf);
+				return file.write(outbuf, write_offset);
 			}
 
 			// read a block and write its hash to the given node
-			void hash_block(uint64_t block, uint8_t position, const struct update &node)
+			bool hash_block(uint64_t block, uint8_t position, const struct update &node)
 			{
 				uint64_t write_offset = hasher::DIGEST_SIZE *
 					(node.node * tree.k + position);
@@ -62,25 +79,24 @@ namespace cohort {
 					<< " hash written to node " << node.node << "." << (uint32_t)position
 					<< " at offset " << write_offset << std::endl;
 
-				unsigned char *buffer = file.write(write_offset);
-				std::fill(buffer, buffer + hasher::DIGEST_SIZE, block & 0xFF);
+				hasher hash;
+				hash.process(reader.read(block), reader.blocksize());
+
+				// write the hash to the parent node
+				unsigned char outbuf[hasher::DIGEST_SIZE];
+				hash.finish(outbuf);
+				return file.write(outbuf, write_offset);
 			}
 
 		public:
-			updater(const hash_tree &tree, hash_file &file, hasher &hash)
-				: tree(tree), file(file), hash(hash)
-			{
-			}
-
 			// update the hash tree to reflect changes to the blocks
 			// in range [dstart, dend].  maxblocks is also needed to
 			// calculate the position of the tree's root node
-			uint64_t update(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
+			bool update(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 			{
 				const uint64_t leaves = maxblocks / tree.k +
 					(maxblocks % tree.k ? 1 : 0);
 				uint64_t depth = tree.depth(leaves);
-				uint64_t count = 0;
 
 				// initialize the root node
 				struct update root;
@@ -115,8 +131,8 @@ namespace cohort {
 
 						for (; node.dstart < node.dend; node.dstart++)
 						{
-							hash_block(node.dstart, node.dstart - node.bstart, node);
-							count++;
+							if (!hash_block(node.dstart, node.dstart - node.bstart, node))
+								return false;
 						}
 
 						depth++;
@@ -142,8 +158,9 @@ namespace cohort {
 								{
 									child.node = child.parent - 1 - dnodes *
 										(tree.k - child.position - 1);
-									hash_node(child, depth - 1);
-									count++;
+
+									if (!hash_node(child, depth - 1))
+										return false;
 								}
 							}
 
@@ -181,8 +198,7 @@ namespace cohort {
 				}
 
 				// write final hash of root node
-				hash_node(root, depth);
-				return count;
+				return hash_node(root, depth);
 			}
 	};
 

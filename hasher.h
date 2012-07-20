@@ -19,7 +19,7 @@ namespace cohort {
 
 			static const size_type DIGEST_SIZE = SHA_DIGEST_LENGTH;
 
-			void init()
+			hasher()
 			{
 				SHA1_Init(&context);
 			}
