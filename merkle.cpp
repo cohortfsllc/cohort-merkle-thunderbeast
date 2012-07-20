@@ -8,6 +8,7 @@
 
 #include "updater.h"
 #include "block_reader.h"
+#include "hasher.h"
 
 
 static int usage(char *name)

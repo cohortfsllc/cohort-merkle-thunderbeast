@@ -3,13 +3,15 @@
 #ifndef COHORT_BLOCK_READER_H
 #define COHORT_BLOCK_READER_H
 
+#include <unistd.h>
+
 #include <vector>
 #include <iostream>
-#include <unistd.h>
 
 
 namespace cohort {
 
+	// stub class to read the input blocks from a file
 	class block_reader {
 		private:
 			const int fd;
@@ -35,7 +37,7 @@ namespace cohort {
 				return count;
 			}
 
-			// read a block and return a pointer into the buffer
+			// read a block into a private buffer and return a pointer
 			unsigned char* read(uint64_t block)
 			{
 				if (lseek64(fd, block * blocksize(), SEEK_SET) == -1)

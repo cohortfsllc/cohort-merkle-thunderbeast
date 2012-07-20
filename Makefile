@@ -9,7 +9,7 @@ HEADERS=hash_tree.h hash_file.h hasher.h updater.h block_reader.h
 
 all: merkle runtests
 
-merkle: merkle.o
+merkle: merkle.o updater.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 runtests: test.o

@@ -9,6 +9,7 @@
 
 namespace cohort {
 
+	// stub class for reading/writing to the hash file
 	class hash_file {
 		private:
 			const int fd;
@@ -31,6 +32,7 @@ namespace cohort {
 				return true;
 			}
 
+			// read an entire node into a private buffer, and return a pointer
 			const unsigned char* read(size_t offset)
 			{
 				if (lseek64(fd, offset, SEEK_SET) == -1)
@@ -52,6 +54,7 @@ namespace cohort {
 				return buffer.data();
 			}
 
+			// write a single hash
 			bool write(const unsigned char *data, size_t offset)
 			{
 				if (lseek64(fd, offset, SEEK_SET) == -1)
