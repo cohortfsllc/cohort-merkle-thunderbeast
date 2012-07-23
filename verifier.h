@@ -14,10 +14,12 @@ namespace cohort {
 		private:
 			block_reader &reader;
 			hash_file &file;
+			bool verbose;
 
 		public:
-			verifier(const hash_tree &tree, block_reader &reader, hash_file &file)
-				: visitor(tree), reader(reader), file(file)
+			verifier(const hash_tree &tree, block_reader &reader,
+					hash_file &file, bool verbose)
+				: visitor(tree), reader(reader), file(file), verbose(verbose)
 			{
 			}
 

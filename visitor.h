@@ -3,15 +3,13 @@
 #ifndef COHORT_VISITOR_H
 #define COHORT_VISITOR_H
 
-#include <stack>
-
 #include "hash_tree.h"
 
 
 namespace cohort {
 
 	// visitor: perform a depth-first traversal of the tree, ignoring
-	//  nodes that don't contain any dirty blocks.
+	//  nodes that aren't in the requested range.
 	class visitor {
 		protected:
 			const hash_tree &tree;
@@ -32,11 +30,12 @@ namespace cohort {
 				uint64_t node, parent; // index of the node and its parent
 				uint64_t bstart, bend; // bounds of all blocks under this node
 				uint64_t dstart, dend; // bounds of dirty blocks under this node
+				uint64_t cnodes; // number of nodes under each child
+				uint64_t cleaves; // number of leaves under each child
 				uint64_t dirty; // bitmask of children traversed. XXX: only supports k <= 64
 				uint8_t progress; // number of children processed
 				uint8_t position; // child's position under parent node [0, k-1]
 			};
-			typedef std::stack<struct state> state_stack;
 
 			// virtual functions
 			virtual bool visit_node(const struct state &node, uint64_t depth)

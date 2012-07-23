@@ -1,5 +1,7 @@
 // vim: ts=2 sw=2 smarttab
 
+#include <vector>
+
 #include "visitor.h"
 
 
@@ -7,29 +9,41 @@ using namespace cohort;
 
 
 // visit all nodes associated with blocks in range [dstart, dend]
-bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
+bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 {
+	// allocate the state stack, whose size is bounded by maxdepth
+	std::vector<struct state> stack;
+	stack.resize(maxdepth);
+
 	// initialize the root node
-	struct state root;
-	root.node = tree.root(depth);
+	struct state &root = stack[maxdepth-1];
+	root.node = tree.root(maxdepth);
 	root.parent = root.node + 1;
 	root.bstart = 0;
-	root.bend = tree.leaves(depth) - 1;
+	root.bend = tree.leaves(maxdepth) - 1;
 	root.dstart = dstart;
 	root.dend = dend + 1;
 	root.dirty = 0;
 	root.progress = 0;
 	root.position = 0;
 
-	// push it to the state stack
-	state_stack stack;
-	stack.push(root);
-
-	while (!stack.empty())
+	// precalculate.cnodes and.cleaves for each level,
+	// instead of redoing them at each node traversed
+	stack[0].cnodes = 0;
+	stack[0].cleaves = 1;
+	for (int i = 1; i < maxdepth; i++)
 	{
-		struct state &node = stack.top();
+		stack[i].cnodes = stack[i-1].cnodes * tree.k + 1;
+		stack[i].cleaves = stack[i-1].cleaves * tree.k;
+	}
 
-		// base case: hash file blocks into their leaf node
+	// start traversal at the root node
+	int depth = maxdepth;
+	while (depth <= maxdepth)
+	{
+		struct state &node = stack[depth-1];
+
+		// base case: hash each file block for its leaf node
 		if (depth == 1)
 		{
 			for (; node.dstart < node.dend; node.dstart++)
@@ -38,15 +52,12 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 					return false;
 			}
 
+			// traverse back up to parent node
 			depth++;
-			stack.pop();
 		}
 		else
 		{
-			// distance between child nodes
-			const uint64_t dnodes = tree.size(depth - 1);
-
-			struct state child;
+			struct state &child = stack[depth-2];
 			child.parent = node.node;
 			child.progress = 0;
 			child.dirty = 0;
@@ -59,7 +70,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 					// update hash for any dirty children
 					if (node.dirty & (1ULL << child.position))
 					{
-						child.node = child.parent - 1 - dnodes *
+						child.node = child.parent - 1 - node.cnodes *
 							(tree.k - child.position - 1);
 
 						if (!visit_node(child, depth - 1))
@@ -69,20 +80,19 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 
 				// traverse back up to parent node
 				depth++;
-				stack.pop();
 				continue;
 			}
 
-			// total number of blocks under each child
-			const uint64_t dblocks = math::powi(tree.k, depth - 1);
-
+			// consider each child node. remember our progress
+			// so we can traverse a single child, instead of having
+			// to push them all to the stack at once
 			while (node.progress < tree.k) 
 			{
 				child.position = node.progress++;
 
 				// calculate which blocks are under this node
-				child.bstart = node.bstart + child.position * dblocks;
-				child.bend = child.bstart + dblocks;
+				child.bstart = node.bstart + child.position * node.cleaves;
+				child.bend = child.bstart + node.cleaves;
 
 				// intersect with the parent's dirty block range
 				child.dstart = std::max(child.bstart, node.dstart);
@@ -91,10 +101,9 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 				if (child.dstart < child.dend)
 				{
 					// traverse down to child node
-					child.node = child.parent - 1 - dnodes *
+					child.node = child.parent - 1 - node.cnodes *
 						(tree.k - child.position - 1);
 					depth--;
-					stack.push(child);
 					node.dirty |= (1ULL << child.position);
 					break;
 				}
@@ -102,6 +111,6 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 		}
 	}
 
-	// write final hash of root node
+	// final hash of root node
 	return visit_node(root, depth);
 }

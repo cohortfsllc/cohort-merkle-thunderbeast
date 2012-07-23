@@ -69,7 +69,7 @@ static int hash_write(char *input, char *output,
 		return 5;
 	}
 
-	std::cout << "hash verification successful" << std::endl;
+	std::cout << "hash update successful" << std::endl;
 	return 0;
 }
 
