@@ -18,4 +18,4 @@ test: runtests
 	./runtests
 
 clean:
-	rm merkle runtests *.o
+	rm -f merkle runtests *.o

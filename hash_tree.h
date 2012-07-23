@@ -35,12 +35,13 @@ namespace cohort {
 			// return the minimum depth required to hold the given number of leaves
 			uint64_t depth(uint64_t leaves) const
 			{
+				// XXX: precision problems with larger values
 				return 1 + (uint64_t)(std::ceil(
-							std::log((double)leaves) / std::log((double)k)));
+							std::log10((double)leaves) / std::log10((double)k)));
 			}
 
 			// size: return the number of nodes in a tree of the given depth.
-			// each level multiplies the node count by node_width and adds 1.
+			// each level multiplies the node count by k and adds 1.
 			// this can be simplified into the sum, over i=0 to depth-1, of k^i
 			uint64_t size(uint64_t depth) const
 			{

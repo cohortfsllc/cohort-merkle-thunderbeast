@@ -31,10 +31,8 @@ namespace cohort {
 
 			uint64_t count() const
 			{
-				size_t count = filesize / buffer.size();
-				if (filesize % buffer.size())
-					count++;
-				return count;
+				return filesize / buffer.size() +
+					    (filesize % buffer.size() ? 1 : 0);
 			}
 
 			// read a block into a private buffer and return a pointer
