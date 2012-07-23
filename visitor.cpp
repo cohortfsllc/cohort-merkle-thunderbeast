@@ -1,7 +1,5 @@
 // vim: ts=2 sw=2 smarttab
 
-#include <iostream>
-
 #include "visitor.h"
 
 
@@ -34,11 +32,6 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t depth)
 		// base case: hash file blocks into their leaf node
 		if (depth == 1)
 		{
-			if (node.bend - node.bstart != tree.k)
-				std::cerr << std::string(2*depth, ' ')
-					<< "error: leaf node " << node.node
-					<< " with " << node.bend - node.bstart << " blocks!" << std::endl;
-
 			for (; node.dstart < node.dend; node.dstart++)
 			{
 				if (!visit_leaf(node.dstart, node.dstart - node.bstart, node))

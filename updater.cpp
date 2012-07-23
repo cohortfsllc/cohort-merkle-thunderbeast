@@ -37,7 +37,8 @@ bool updater::visit_node(const struct state &node, uint64_t depth)
 		<< " at offset " << write_offset << std::endl;
 
 	// read the hashes from the child node
-	const unsigned char *inbuf = file.read(read_offset);
+	const unsigned char *inbuf = file.read(read_offset,
+			hasher::DIGEST_SIZE * tree.k);
 	if (inbuf == NULL)
 		return false;
 

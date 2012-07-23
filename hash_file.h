@@ -33,8 +33,14 @@ namespace cohort {
 			}
 
 			// read an entire node into a private buffer, and return a pointer
-			const unsigned char* read(size_t offset)
+			const unsigned char* read(size_t offset, size_t length)
 			{
+				if (length > buffer.size())
+				{
+					std::cerr << "hash_file: requested length " << length
+						<< " larger than buffer size " << buffer.size() << std::endl;
+					return false;
+				}
 				if (lseek64(fd, offset, SEEK_SET) == -1)
 				{
 					std::cerr << "hash_file: lseek() failed with error " << errno << std::endl;
@@ -46,7 +52,7 @@ namespace cohort {
 					std::cerr << "hash_file: read failed with error " << errno << std::endl;
 					return NULL;
 				}
-				if (bytes < buffer.size())
+				if (bytes < length)
 				{
 					std::cerr << "hash_file: read less than expected" << std::endl;
 					return NULL;
