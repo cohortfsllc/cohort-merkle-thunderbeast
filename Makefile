@@ -8,10 +8,12 @@ OBJ=updater.o verifier.o visitor.o
 %.o: %.cpp $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
+all: merkle runtests
+
 merkle: merkle.o $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
-runtests: test.o $(OBJ)
+runtests: test.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 test: runtests

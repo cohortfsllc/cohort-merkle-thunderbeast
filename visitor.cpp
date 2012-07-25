@@ -8,6 +8,24 @@
 using namespace cohort;
 
 
+static uint64_t child_index(uint64_t parent, uint8_t n,
+		uint64_t root, uint64_t root_1)
+{
+	if (parent == root)
+	{
+		// the left child of a root node is also a root node
+		if (n == 0) return root_1;
+		// the second child comes right after the parent
+		if (n == 1) return parent + 1;
+		// subsequent children come at intervals of root
+		return parent * n + 1;
+	}
+	// the left child comes right after the parent
+	if (n == 0) return parent + 1;
+	// subsequent children come at intervals of root
+	return parent + 1 + n * root;
+}
+
 // visit all nodes associated with blocks in range [dstart, dend]
 bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 {
@@ -18,7 +36,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 	// initialize the root node
 	struct state &root = stack[maxdepth-1];
 	root.node = tree.root(maxdepth);
-	root.parent = root.node + 1;
+	root.parent = -1ULL;
 	root.bstart = 0;
 	root.bend = tree.leaves(maxdepth) - 1;
 	root.dstart = dstart;
@@ -27,8 +45,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 	root.progress = 0;
 	root.position = 0;
 
-	// precalculate.cnodes and.cleaves for each level,
-	// instead of redoing them at each node traversed
+	// precalculate cnodes and cleaves for each level
 	stack[0].cnodes = 0;
 	stack[0].cleaves = 1;
 	for (int i = 1; i < maxdepth; i++)
@@ -43,7 +60,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 	{
 		struct state &node = stack[depth-1];
 
-		// base case: hash each file block for its leaf node
+		// base case: visit each file block of the leaf node
 		if (depth == 1)
 		{
 			for (; node.dstart < node.dend; node.dstart++)
@@ -67,11 +84,11 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 				// all child nodes have been processed
 				for (child.position = 0; child.position < tree.k; child.position++)
 				{
-					// update hash for any dirty children
+					// calculate hash for any dirty children
 					if (node.dirty & (1ULL << child.position))
 					{
-						child.node = child.parent - 1 - node.cnodes *
-							(tree.k - child.position - 1);
+						child.node = child_index(child.parent, child.position,
+								node.cnodes, child.cnodes);
 
 						if (!visit_node(child, depth - 1))
 							return false;
@@ -101,8 +118,8 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 				if (child.dstart < child.dend)
 				{
 					// traverse down to child node
-					child.node = child.parent - 1 - node.cnodes *
-						(tree.k - child.position - 1);
+					child.node = child_index(child.parent, child.position,
+							node.cnodes, child.cnodes);
 					depth--;
 					node.dirty |= (1ULL << child.position);
 					break;
