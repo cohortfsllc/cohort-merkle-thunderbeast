@@ -54,8 +54,10 @@ namespace cohort {
 				}
 				if (bytes < length)
 				{
-					std::cerr << "hash_file: read less than expected" << std::endl;
-					return NULL;
+					//std::cerr << "hash_file: read less than expected" << std::endl;
+					//return NULL;
+					// zero-fill the rest of the buffer
+					std::fill(buffer.begin() + bytes, buffer.end(), 0);
 				}
 				return buffer.data();
 			}

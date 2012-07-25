@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include <iostream>
+
 
 namespace cohort {
 
@@ -13,6 +15,7 @@ namespace cohort {
 		// avoid floating-point casts involved with pow()
 		static inline uint64_t powi(uint64_t base, uint64_t exponent)
 		{
+			// https://en.wikipedia.org/wiki/Exponentiation_by_squaring
 			uint64_t result = 1;
 			while (exponent)
 			{
@@ -24,6 +27,24 @@ namespace cohort {
 			}
 			return result;
 		}
+
+		// integer logarithm for base=2^n
+		static inline uint8_t log2n(uint64_t value, uint8_t n)
+		{
+			uint8_t result = 0;
+			while (value >>= n)
+				result++;
+			return result;
+		}
+
+		// simulate ceil() by adding 1 when there's any remainder
+		static inline uint8_t log2n_ceil(uint64_t value, uint8_t n)
+		{
+			uint8_t base = log2n(value, n);
+			if (value != (1ULL << (base * n)))
+				base++;
+			return base;
+		}
 	}
 
 	class hash_tree {
@@ -33,11 +54,26 @@ namespace cohort {
 			hash_tree(uint8_t k) : k(k) {}
 
 			// return the minimum depth required to hold the given number of leaves
-			uint64_t depth(uint64_t leaves) const
+			uint8_t depth(uint64_t leaves) const
 			{
-				// XXX: precision problems with larger values
-				return 1 + (uint64_t)(std::ceil(
-							std::log10((double)leaves) / std::log10((double)k)));
+				// depth = 1 + ceil( logk(leaves) )
+				uint8_t n;
+				switch (k) {
+					// optimization for powers of 2
+					case 2:   return 1 + math::log2n_ceil(leaves, 1);
+					case 4:   return 1 + math::log2n_ceil(leaves, 2);
+					case 8:   return 1 + math::log2n_ceil(leaves, 3);
+					case 16:  return 1 + math::log2n_ceil(leaves, 4);
+					case 32:  return 1 + math::log2n_ceil(leaves, 5);
+					case 64:  return 1 + math::log2n_ceil(leaves, 6);
+					case 128: return 1 + math::log2n_ceil(leaves, 7);
+					// otherwise use std::log()
+					// XXX: precision problems with larger values
+					default:
+						return 1 + (uint8_t)(std::ceil(
+									std::log10((double)leaves) /
+									std::log10((double)k)));
+				}
 			}
 
 			// size: return the number of nodes in a tree of the given depth.
@@ -58,8 +94,7 @@ namespace cohort {
 			// return the root node index, given the depth of the tree
 			uint64_t root(uint64_t depth) const
 			{
-				// the root node has the highest index of its subtree
-				return size(depth) - 1;
+				return depth <= 1 ? 0 : size(depth - 1);
 			}
 
 			// return the number of leaves, given the depth of the tree

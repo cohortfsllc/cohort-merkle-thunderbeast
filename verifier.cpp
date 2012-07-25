@@ -21,9 +21,9 @@ bool verifier::verify(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 // read a node and compare its hash with the parent
 bool verifier::visit_node(const struct state &node, uint64_t depth)
 {
-	uint64_t read_offset = hasher::DIGEST_SIZE * node.node * tree.k;
-	uint64_t write_offset = hasher::DIGEST_SIZE *
-		(node.parent * tree.k + node.position);
+	uint64_t read_offset = hasher::DIGEST_SIZE * (node.node * tree.k + 1);
+	uint64_t write_offset = node.parent == -1ULL ? 0 :
+		hasher::DIGEST_SIZE * (node.parent * tree.k + node.position + 1);
 
 	// read the hashes from the child node
 	const unsigned char *inbuf = file.read(read_offset,
@@ -52,10 +52,11 @@ bool verifier::visit_node(const struct state &node, uint64_t depth)
 		return false;
 	}
 
-	std::cout << std::string(2*depth, ' ')
-		<< "node " << node.node << " at " << read_offset
-		<< " hash matches node " << node.parent << "." << (uint32_t)node.position
-		<< " at offset " << write_offset << std::endl;
+	if (verbose)
+		std::cout << std::string(2*depth, ' ')
+			<< "node " << node.node << " at " << read_offset
+			<< " hash matches node " << node.parent << "." << (uint32_t)node.position
+			<< " at offset " << write_offset << std::endl;
 	return true;
 }
 
@@ -64,7 +65,7 @@ bool verifier::visit_leaf(uint64_t block, uint8_t position,
 		const struct state &node)
 {
 	uint64_t write_offset = hasher::DIGEST_SIZE *
-		(node.node * tree.k + position);
+		(node.node * tree.k + position + 1);
 
 	// read the contents of the block
 	const unsigned char* inbuf = reader.read(block);
@@ -92,8 +93,9 @@ bool verifier::visit_leaf(uint64_t block, uint8_t position,
 		return false;
 	}
 
-	std::cout << "block " << block << " hash matches node "
-		<< node.node << "." << (uint32_t)position
-		<< " at offset " << write_offset << std::endl;
+	if (verbose)
+		std::cout << "block " << block << " hash matches node "
+			<< node.node << "." << (uint32_t)position
+			<< " at offset " << write_offset << std::endl;
 	return true;
 }
