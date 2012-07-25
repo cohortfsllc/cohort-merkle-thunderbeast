@@ -21,7 +21,7 @@ namespace cohort {
 			}
 
 			// visit all nodes associated with blocks in range [dstart, dend]
-			bool visit(uint64_t dstart, uint64_t dend, uint64_t depth);
+			bool visit(uint64_t dstart, uint64_t dend, uint8_t depth);
 
 		protected:
 			// state kept on a stack to simulate a recursive algorithm
@@ -37,14 +37,11 @@ namespace cohort {
 				uint8_t position; // child's position under parent node [0, k-1]
 			};
 
-			// virtual functions
-			virtual bool visit_node(const struct state &node, uint64_t depth)
-			{
-			}
+			// protected interface for visitor implementations
+			virtual bool visit_node(const struct state &node, uint8_t depth) = 0;
+
 			virtual bool visit_leaf(uint64_t block, uint8_t position,
-				 const struct state &node)
-			{
-			}
+				 const struct state &node) = 0;
 	};
 
 }

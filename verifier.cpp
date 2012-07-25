@@ -13,13 +13,13 @@ bool verifier::verify(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 {
 	uint64_t leaves = maxblocks / tree.k +
 		(maxblocks % tree.k ? 1 : 0);
-	uint64_t depth = tree.depth(leaves);
+	uint8_t depth = tree.depth(leaves);
 
 	return visitor::visit(dstart, dend, depth);
 }
 
 // read a node and compare its hash with the parent
-bool verifier::visit_node(const struct state &node, uint64_t depth)
+bool verifier::visit_node(const struct state &node, uint8_t depth)
 {
 	uint64_t read_offset = hasher::DIGEST_SIZE * (node.node * tree.k + 1);
 	uint64_t write_offset = node.parent == -1ULL ? 0 :

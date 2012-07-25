@@ -27,7 +27,7 @@ namespace cohort {
 
 		private:
 			// overrides from visitor
-			bool visit_node(const struct state &node, uint64_t depth);
+			bool visit_node(const struct state &node, uint8_t depth);
 
 			bool visit_leaf(uint64_t block, uint8_t position, const struct state &node);
 	};

@@ -52,7 +52,7 @@ namespace cohort {
 					std::cerr << "hash_file: read failed with error " << errno << std::endl;
 					return NULL;
 				}
-				if (bytes < length)
+				if (bytes < (ssize_t)length)
 				{
 					//std::cerr << "hash_file: read less than expected" << std::endl;
 					//return NULL;
@@ -76,7 +76,7 @@ namespace cohort {
 					std::cerr << "hash_file: write failed with error " << errno << std::endl;
 					return false;
 				}
-				else if (bytes < digest_size)
+				else if (bytes < (ssize_t)digest_size)
 				{
 					std::cerr << "hash_file: wrote less than expected" << std::endl;
 					return false;

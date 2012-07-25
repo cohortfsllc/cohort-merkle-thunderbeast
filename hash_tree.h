@@ -57,7 +57,6 @@ namespace cohort {
 			uint8_t depth(uint64_t leaves) const
 			{
 				// depth = 1 + ceil( logk(leaves) )
-				uint8_t n;
 				switch (k) {
 					// optimization for powers of 2
 					case 2:   return 1 + math::log2n_ceil(leaves, 1);

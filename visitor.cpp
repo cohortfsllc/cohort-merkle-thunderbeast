@@ -27,7 +27,7 @@ static uint64_t child_index(uint64_t parent, uint8_t n,
 }
 
 // visit all nodes associated with blocks in range [dstart, dend]
-bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
+bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 {
 	// allocate the state stack, whose size is bounded by maxdepth
 	std::vector<struct state> stack;
@@ -48,14 +48,14 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxdepth)
 	// precalculate cnodes and cleaves for each level
 	stack[0].cnodes = 0;
 	stack[0].cleaves = 1;
-	for (int i = 1; i < maxdepth; i++)
+	for (uint8_t i = 1; i < maxdepth; i++)
 	{
 		stack[i].cnodes = stack[i-1].cnodes * tree.k + 1;
 		stack[i].cleaves = stack[i-1].cleaves * tree.k;
 	}
 
 	// start traversal at the root node
-	int depth = maxdepth;
+	uint8_t depth = maxdepth;
 	while (depth <= maxdepth)
 	{
 		struct state &node = stack[depth-1];

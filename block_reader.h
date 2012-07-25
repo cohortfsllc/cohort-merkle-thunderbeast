@@ -51,7 +51,7 @@ namespace cohort {
 				}
 
 				// zero-fill any bytes after what was read
-				if (bytes < buffer.size())
+				if (bytes < (ssize_t)buffer.size())
 					std::fill(buffer.data() + bytes, buffer.data() + buffer.size(), 0);
 
 				return buffer.data();
