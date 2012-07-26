@@ -14,7 +14,7 @@ merkle: merkle.o $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 runtests: test.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 test: runtests
 	./runtests

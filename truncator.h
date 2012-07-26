@@ -18,6 +18,7 @@ namespace cohort {
 			block_reader &reader;
 			hash_file &file;
 			bool verbose;
+			bool partial; // true if file was not truncated on block boundary
 
 		public:
 			truncator(const hash_tree &tree, block_reader &reader,
@@ -27,8 +28,9 @@ namespace cohort {
 			}
 
 			// update the hash tree to reflect the given new last block,
-			// truncating the hash file and regenerating the root checksum
-			bool truncate(uint64_t new_last_block);
+			// truncating the hash file and regenerating the root checksum.
+			// 'partial' is set when truncation was not on a block boundary
+			bool truncate(uint64_t new_last_block, bool partial);
 
 		private:
 			// overrides from visitor
