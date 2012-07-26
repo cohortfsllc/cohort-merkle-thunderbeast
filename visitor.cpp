@@ -8,27 +8,6 @@
 using namespace cohort;
 
 
-namespace {
-
-	uint64_t child_index(uint64_t parent, uint8_t n,
-			uint64_t root, uint64_t root_1)
-	{
-		if (parent == root)
-		{
-			// the left child of a root node is also a root node
-			if (n == 0) return root_1;
-			// the second child comes right after the parent
-			if (n == 1) return parent + 1;
-			// subsequent children come at intervals of root
-			return parent * n + 1;
-		}
-		// the left child comes right after the parent
-		if (n == 0) return parent + 1;
-		// subsequent children come at intervals of root
-		return parent + 1 + n * root;
-	}
-}
-
 // visit all nodes associated with blocks in range [dstart, dend]
 bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 {
@@ -94,8 +73,8 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 					// calculate hash for any dirty children
 					if (node.dirty & (1ULL << child.position))
 					{
-						child.node = child_index(child.parent, child.position,
-								node.cnodes, child.cnodes);
+						child.node = tree.child_index(child.parent,
+								child.position, node.cnodes, child.cnodes);
 
 						if (!visit_node(child, depth - 1))
 							return false;
@@ -125,8 +104,8 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 				if (child.dstart < child.dend)
 				{
 					// traverse down to child node
-					child.node = child_index(child.parent, child.position,
-							node.cnodes, child.cnodes);
+					child.node = tree.child_index(child.parent,
+							child.position, node.cnodes, child.cnodes);
 					depth--;
 					node.dirty |= (1ULL << child.position);
 					break;

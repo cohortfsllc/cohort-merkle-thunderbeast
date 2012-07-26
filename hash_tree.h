@@ -6,8 +6,6 @@
 #include <cmath>
 #include <cstdint>
 
-#include <iostream>
-
 
 namespace cohort {
 
@@ -66,12 +64,12 @@ namespace cohort {
 					case 32:  return 1 + math::log2n_ceil(leaves, 5);
 					case 64:  return 1 + math::log2n_ceil(leaves, 6);
 					case 128: return 1 + math::log2n_ceil(leaves, 7);
-					// otherwise use std::log()
-					// XXX: precision problems with larger values
+										// otherwise use std::log()
+										// XXX: precision problems with larger values
 					default:
-						return 1 + (uint8_t)(std::ceil(
-									std::log10((double)leaves) /
-									std::log10((double)k)));
+										return 1 + (uint8_t)(std::ceil(
+													std::log10((double)leaves) /
+													std::log10((double)k)));
 				}
 			}
 
@@ -100,6 +98,25 @@ namespace cohort {
 			uint64_t leaves(uint64_t depth) const
 			{
 				return math::powi(k, depth);
+			}
+
+			// return the nth child node index of the given parent
+			uint64_t child_index(uint64_t parent, uint8_t n,
+					uint64_t root, uint64_t prev_root) const
+			{
+				if (parent == root)
+				{
+					// the left child of a root node is also a root node
+					if (n == 0) return prev_root;
+					// the second child comes right after the parent
+					if (n == 1) return parent + 1;
+					// subsequent children come at intervals of root
+					return parent * n + 1;
+				}
+				// the left child comes right after the parent
+				if (n == 0) return parent + 1;
+				// subsequent children come at intervals of root
+				return parent + 1 + n * root;
 			}
 	};
 
