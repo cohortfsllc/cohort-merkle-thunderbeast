@@ -59,7 +59,7 @@ bool updater::visit_leaf(uint64_t block, uint8_t position,
 			<< " at offset " << write_offset << std::endl;
 
 	// read the contents of the block
-	const unsigned char* inbuf = reader.read(block);
+	const unsigned char *inbuf = reader.read(block);
 	if (inbuf == NULL)
 		return false;
 

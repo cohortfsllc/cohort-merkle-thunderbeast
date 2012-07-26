@@ -24,7 +24,7 @@ namespace cohort {
 
 			bool resize(size_t length)
 			{
-				if (ftruncate64(fd, length) == -1)
+				if (::ftruncate64(fd, length) == -1)
 				{
 					std::cerr << "hash_file: ftruncate() failed with error " << errno << std::endl;
 					return false;
@@ -32,7 +32,7 @@ namespace cohort {
 				return true;
 			}
 
-			// read an entire node into a private buffer, and return a pointer
+			// read an entire node into a private buffer and return a pointer
 			const unsigned char* read(size_t offset, size_t length)
 			{
 				if (length > buffer.size())
@@ -41,7 +41,7 @@ namespace cohort {
 						<< " larger than buffer size " << buffer.size() << std::endl;
 					return false;
 				}
-				if (lseek64(fd, offset, SEEK_SET) == -1)
+				if (::lseek64(fd, offset, SEEK_SET) == -1)
 				{
 					std::cerr << "hash_file: lseek() failed with error " << errno << std::endl;
 					return false;
@@ -54,8 +54,6 @@ namespace cohort {
 				}
 				if (bytes < (ssize_t)length)
 				{
-					//std::cerr << "hash_file: read less than expected" << std::endl;
-					//return NULL;
 					// zero-fill the rest of the buffer
 					std::fill(buffer.begin() + bytes, buffer.end(), 0);
 				}
@@ -78,7 +76,7 @@ namespace cohort {
 				}
 				else if (bytes < (ssize_t)digest_size)
 				{
-					std::cerr << "hash_file: wrote less than expected" << std::endl;
+					std::cerr << "hash_file: wrote less than requested" << std::endl;
 					return false;
 				}
 				return true;

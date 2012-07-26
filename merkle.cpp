@@ -6,6 +6,7 @@
 
 #include <cstring>
 
+#include "truncator.h"
 #include "updater.h"
 #include "verifier.h"
 #include "block_reader.h"
@@ -17,15 +18,21 @@ namespace {
 	int usage(char *name)
 	{
 		std::cout << "Usage:\n"
-			<< name << " write [options] <input file> <output file>\n"
-			<< name << " verify [options] <input file> <hash file>\n\n"
+			<< name << " <operation> [options] <input file> <output file>\n\n"
+			"Operations:\n"
+			"  write    Read blocks from the input file and write an updated\n"
+			"           hash tree to the output file.\n\n"
+			"  truncate Truncate the input file at the upper bound specified\n"
+			"           with -r, and write an updated hash tree to the output file.\n\n"
+			"  verify   Read blocks from the input file and compare the hashes\n"
+			"           with those from the output file.\n\n"
 			"Options:\n"
-			" -b #    Size of each file block in bytes. default: 512\n\n"
-			" -k #    Number of children for each hash tree node. Must be\n"
-			"         a power of 2, between 2 and 128. default: 4\n\n"
-			" -r # #  Range of file blocks on which to operate, using\n"
-			"         zero-based indices. default: all blocks\n\n"
-			" -v      Verbose output.\n" << std::endl;
+			"  -b #     Size of each file block in bytes. default: 512\n\n"
+			"  -k #     Number of children for each hash tree node. Must be\n"
+			"           a power of 2, between 2 and 128. default: 4\n\n"
+			"  -r # #   Range of file blocks on which to operate, using\n"
+			"           zero-based indices. default: all blocks\n\n"
+			"  -v       Verbose output.\n" << std::endl;
 		return 1;
 	}
 
@@ -76,8 +83,28 @@ namespace {
 			const auto_fd& operator=(const auto_fd&);
 	};
 
+	// update the block range options once we know the total block count,
+	// returning an error if our arguments are out of range.
+	bool update_range(cmd_options &options, uint64_t blocks)
+	{
+		if (options.range_to == 0xFFFFFFFF)
+		{
+			options.range_to = blocks - 1;
+		}
+		else if (options.range_to >= blocks)
+		{
+			std::cerr << "Upper bound of block range '" << options.range_to
+				<< "' larger than highest block in file '" << blocks - 1
+				<< "'." << std::endl;
+			return false;
+		}
+		return true;
+	}
 
-	int hash_write(const cmd_options &options)
+
+	// read from the input file and invoke updater.update() to
+	// write the merkle tree to the output file
+	int hash_write(cmd_options &options)
 	{
 		// open input file for r (fail if not exist)
 		auto_fd fdin(::open(options.source, O_RDONLY));
@@ -108,22 +135,92 @@ namespace {
 
 		cohort::block_reader blocks(fdin,
 				stat.st_size, options.block_size);
+		if (!update_range(options, blocks.count()))
+			return 5;
+
 		cohort::hash_file file(fdout,
 				cohort::hasher::DIGEST_SIZE, options.tree_width);
 		cohort::hash_tree tree(options.tree_width);
 		cohort::updater updater(tree, blocks, file, options.verbose);
 
-		if (!updater.update(0, blocks.count()-1, blocks.count()))
+		if (!updater.update(options.range_from,
+					options.range_to, blocks.count()))
 		{
 			std::cerr << "hash update failed" << std::endl;
-			return 5;
+			return 6;
 		}
 
 		std::cout << "hash update successful" << std::endl;
 		return 0;
 	}
 
-	int hash_verify(const cmd_options &options)
+	// truncate the input file and invoke truncator.truncate() to
+	// write an updated hash tree file
+	int hash_truncate(cmd_options &options)
+	{
+		// open input file for rw
+		auto_fd fdin(::open(options.source, O_RDWR));
+		if (fdin == -1)
+		{
+			std::cerr << "Failed to open input file '" << options.source
+				<< "' with error " << errno << std::endl;
+			return 2;
+		}
+
+		// open output file for rw
+		auto_fd fdout(::open(options.hash, O_RDWR));
+		if (fdout == -1)
+		{
+			std::cerr << "Failed to open output file '" << options.hash
+				<< "' with error " << errno << std::endl;
+			return 3;
+		}
+
+		// stat the input file for file size
+		struct stat stat;
+		if (::fstat(fdin, &stat) == -1)
+		{
+			std::cerr << "Failed to get file size of input file '"
+				<< options.source << "' with error " << errno << std::endl;
+			return 4;
+		}
+
+		cohort::block_reader blocks(fdin,
+				stat.st_size, options.block_size);
+		if (options.range_to >= blocks.count() - 1)
+		{
+			std::cerr << "The truncate operation requires a new last "
+				"block smaller than " << blocks.count() - 1 << ", specified "
+				"in the second argument of the -r option." << std::endl;
+			return 5;
+		}
+
+		// truncate the input file after the given block
+		if (::ftruncate(fdin, (options.range_to + 1) * options.block_size) == -1)
+		{
+			std::cerr << "Failed to truncate input file '"
+				<< options.source << "' with error " << errno << std::endl;
+			return 6;
+		}
+
+		cohort::hash_file file(fdout,
+				cohort::hasher::DIGEST_SIZE, options.tree_width);
+		cohort::hash_tree tree(options.tree_width);
+		cohort::truncator truncator(tree, blocks, file, options.verbose);
+
+		if (!truncator.truncate(options.range_to, false))
+		{
+			std::cerr << "hash truncate failed" << std::endl;
+			return 7;
+		}
+
+		std::cout << "hash truncate successful" << std::endl;
+		return 0;
+	}
+
+	// read from the input file and invoke verifier.verify() to
+	// compare the generated hashes with the hash tree file
+	int hash_verify(cmd_options &options)
 	{
 		// open input file for r (fail if not exist)
 		auto_fd fdin(::open(options.source, O_RDONLY));
@@ -154,15 +251,19 @@ namespace {
 
 		cohort::block_reader blocks(fdin,
 				stat.st_size, options.block_size);
+		if (!update_range(options, blocks.count()))
+			return 5;
+
 		cohort::hash_file file(fdout,
 				cohort::hasher::DIGEST_SIZE, options.tree_width);
 		cohort::hash_tree tree(options.tree_width);
 		cohort::verifier verifier(tree, blocks, file, options.verbose);
 
-		if (!verifier.verify(0, blocks.count()-1, blocks.count()))
+		if (!verifier.verify(options.range_from,
+					options.range_to, blocks.count()))
 		{
 			std::cerr << "hash verification failed" << std::endl;
-			return 5;
+			return 6;
 		}
 
 		std::cout << "hash verification successful" << std::endl;
@@ -175,8 +276,14 @@ namespace {
 	{
 		argc--;
 		argv++;
+		if (argc < 1)
+		{
+			std::cerr << "Missing argument for operation.\n" << std::endl;
+			return false;
+		}
 		operation = argv[0];
 		if (strcmp(operation, "write") &&
+				strcmp(operation, "truncate") &&
 				strcmp(operation, "verify"))
 		{
 			std::cerr << "Unknown operation '"
@@ -281,6 +388,9 @@ int main(int argc, char *argv[])
 	{
 		if (strcmp(options.operation, "write") == 0)
 			return hash_write(options);
+
+		if (strcmp(options.operation, "truncate") == 0)
+			return hash_truncate(options);
 
 		if (strcmp(options.operation, "verify") == 0)
 			return hash_verify(options);
