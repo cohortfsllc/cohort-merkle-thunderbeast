@@ -10,12 +10,14 @@
 
 namespace cohort {
 
+	// truncator uses class visitor to traverse the tree,
+	// clear the hash values for any removed nodes, and
+	// recalculate the hashes for affected intermediate nodes
 	class truncator : private visitor {
 		private:
 			block_reader &reader;
 			hash_file &file;
 			bool verbose;
-			bool partial; // true if file was not truncated on block boundary
 
 		public:
 			truncator(const hash_tree &tree, block_reader &reader,
@@ -24,7 +26,9 @@ namespace cohort {
 			{
 			}
 
-			bool truncate(uint64_t new_last_block, bool partial);
+			// update the hash tree to reflect the given new last block,
+			// truncating the hash file and regenerating the root checksum
+			bool truncate(uint64_t new_last_block);
 
 		private:
 			// overrides from visitor

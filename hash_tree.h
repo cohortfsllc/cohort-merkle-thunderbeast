@@ -45,6 +45,8 @@ namespace cohort {
 		}
 	}
 
+	// implements the math involved in navigating a hash tree
+	// with the given number of children per node 'k'
 	class hash_tree {
 		public:
 			const uint8_t k; // number of children per node

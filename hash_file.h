@@ -63,7 +63,7 @@ namespace cohort {
 			// write a single hash
 			bool write(const unsigned char *data, size_t offset)
 			{
-				if (lseek64(fd, offset, SEEK_SET) == -1)
+				if (::lseek64(fd, offset, SEEK_SET) == -1)
 				{
 					std::cerr << "hash_file: lseek() failed with error " << errno << std::endl;
 					return false;

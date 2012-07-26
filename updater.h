@@ -10,6 +10,8 @@
 
 namespace cohort {
 
+	// updater uses class visitor to traverse the tree and
+	// recalculate the hashes for blocks and intermediate nodes
 	class updater : private visitor {
 		private:
 			block_reader &reader;
@@ -23,6 +25,9 @@ namespace cohort {
 			{
 			}
 
+			// update the hashes for dirty blocks in the range [dstart, dend-1],
+			// along with all associated ancestors. maxblocks is required to
+			// locate the root node
 			bool update(uint64_t dstart, uint64_t dend, uint64_t maxblocks);
 
 		private:

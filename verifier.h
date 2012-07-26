@@ -10,6 +10,8 @@
 
 namespace cohort {
 
+	// verifier uses class visitor to traverse the tree and
+	// compare the hashes generated with those in the hash file
 	class verifier : private visitor {
 		private:
 			block_reader &reader;
@@ -23,6 +25,9 @@ namespace cohort {
 			{
 			}
 
+			// verify the checksums of all blocks in the range [dstart, dend-1],
+			// along with all associated ancestors. maxblocks is required to
+			// locate the root node
 			bool verify(uint64_t dstart, uint64_t dend, uint64_t maxblocks);
 
 		private:

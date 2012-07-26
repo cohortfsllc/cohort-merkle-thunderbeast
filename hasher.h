@@ -8,6 +8,7 @@
 
 namespace cohort {
 
+	// wrapper class to encapsulate the openssl sha1 hashing algorithm
 	class hasher {
 		private:
 			SHA_CTX context;

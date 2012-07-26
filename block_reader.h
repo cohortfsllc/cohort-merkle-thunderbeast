@@ -38,7 +38,7 @@ namespace cohort {
 			// read a block into a private buffer and return a pointer
 			unsigned char* read(uint64_t block)
 			{
-				if (lseek64(fd, block * blocksize(), SEEK_SET) == -1)
+				if (::lseek64(fd, block * blocksize(), SEEK_SET) == -1)
 				{
 					std::cerr << "block_reader: lseek() failed with error " << errno << std::endl;
 					return NULL;
