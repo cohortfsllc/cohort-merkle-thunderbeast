@@ -11,14 +11,10 @@ using namespace cohort;
 
 bool truncator::truncate(uint64_t new_last_block, bool partial)
 {
-	uint64_t leaves = new_last_block / tree.k +
-		(new_last_block % tree.k ? 1 : 0);
-	uint8_t depth = tree.depth(leaves);
-
 	this->partial = partial;
 
 	// traverse only the nodes with 'new_last_block' in their range
-	return visitor::visit(new_last_block, new_last_block, depth);
+	return visitor::visit(new_last_block, new_last_block, new_last_block + 1);
 }
 
 // rehash the child node, and zero any parent hashes after
@@ -58,23 +54,23 @@ bool truncator::visit_node(const struct state &node, uint8_t depth)
 
 	for (uint8_t i = node.position + 1; i < tree.k; i++)
 	{
+		write_offset = hasher::DIGEST_SIZE *
+			(node.parent * tree.k + i + 1);
 		if (verbose)
 			std::cout << std::string(2*depth, ' ') << "node " << node.node
 				<< " wrote zeroes to node " << node.parent << "." << (uint32_t)i
 				<< " at offset " << write_offset << std::endl;
 
-		if (!file.write(outbuf, hasher::DIGEST_SIZE *
-					(node.parent * tree.k + i + 1)))
+		if (!file.write(outbuf, write_offset))
 			return false;
 	}
 	return true;
 }
 
-// rehash the new last block, and zero any parent hashes after
+// rehash the new last block, and truncate the output file
 bool truncator::visit_leaf(uint64_t block, uint8_t position,
 		const struct state &node)
 {
-	unsigned char outbuf[hasher::DIGEST_SIZE];
 	uint64_t write_offset = hasher::DIGEST_SIZE *
 		(node.node * tree.k + position + 1);
 
@@ -95,33 +91,16 @@ bool truncator::visit_leaf(uint64_t block, uint8_t position,
 		hash.process(inbuf, reader.blocksize());
 
 		// write the hash to the parent node
+		unsigned char outbuf[hasher::DIGEST_SIZE];
 		hash.finish(outbuf);
 		if (!file.write(outbuf, write_offset))
 			return false;
 	}
 
-	// truncate the output file directly after this block's hash
-	if (!file.resize(write_offset + hasher::DIGEST_SIZE))
-		return false;
-
 	if (verbose)
-		std::cout << "truncated hash tree file to "
-			<< write_offset + hasher::DIGEST_SIZE << " bytes." << std::endl;
+		std::cout << "truncating hash file at "
+			<< write_offset + hasher::DIGEST_SIZE << std::endl;
 
-	// zero parent hashes for any blocks after this one
-	std::fill(outbuf, outbuf + hasher::DIGEST_SIZE, 0);
-
-	for (uint8_t i = position + 1; i < tree.k; i++)
-	{
-		if (verbose)
-			std::cout << "block " << block
-				<< " wrote zeroes to node " << node.node << "." << (uint32_t)i
-				<< " at offset " << write_offset << std::endl;
-
-		if (!file.write(outbuf, hasher::DIGEST_SIZE *
-					(node.node * tree.k + i + 1)))
-			return false;
-	}
-
-	return true;
+	// truncate the output file directly after this block's hash
+	return file.resize(write_offset + hasher::DIGEST_SIZE);
 }

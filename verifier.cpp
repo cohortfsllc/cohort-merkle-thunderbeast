@@ -4,6 +4,7 @@
 #include "hasher.h"
 
 #include <iostream>
+#include <algorithm>
 
 
 using namespace cohort;
@@ -11,11 +12,15 @@ using namespace cohort;
 
 bool verifier::verify(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 {
-	uint64_t leaves = maxblocks / tree.k +
-		(maxblocks % tree.k ? 1 : 0);
-	uint8_t depth = tree.depth(leaves);
+	return visitor::visit(dstart, dend, maxblocks);
+}
 
-	return visitor::visit(dstart, dend, depth);
+namespace
+{
+	// unary function for use with std::find_if()
+	struct {
+		bool operator()(unsigned char c) { return c != 0; }
+	} nonzero;
 }
 
 // read a node and compare its hash with the parent
@@ -31,11 +36,31 @@ bool verifier::visit_node(const struct state &node, uint8_t depth)
 	if (inbuf == NULL)
 		return false;
 
-	hasher hash;
-	hash.process(inbuf, hasher::DIGEST_SIZE * tree.k);
+	// check for zeroes outside of the valid range
+	uint64_t i = (node.bend - node.bstart) / node.cleaves +
+		((node.bend - node.bstart) % node.cleaves ? 1 : 0);
+	if (i < tree.k)
+	{
+		const unsigned char *from = inbuf + i * hasher::DIGEST_SIZE;
+		const unsigned char *to = inbuf + tree.k * hasher::DIGEST_SIZE;
+
+		if (std::find_if(from, to, nonzero) != to)
+		{
+			std::cerr << "node " << node.node << " at offset " << read_offset
+				<< " expected zeroes at position " << i << std::endl;
+			return false;
+		}
+
+		if (verbose)
+			std::cout << std::string(2*depth, ' ')
+				<< "node " << node.node << " at " << read_offset
+				<< " verified zeroes at position " << i << std::endl;
+	}
 
 	// calculate the hash
 	unsigned char outbuf[hasher::DIGEST_SIZE];
+	hasher hash;
+	hash.process(inbuf, hasher::DIGEST_SIZE * tree.k);
 	hash.finish(outbuf);
 
 	// compare with the parent node

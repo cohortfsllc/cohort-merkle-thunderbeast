@@ -11,11 +11,7 @@ using namespace cohort;
 
 bool updater::update(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 {
-	uint64_t leaves = maxblocks / tree.k +
-		(maxblocks % tree.k ? 1 : 0);
-	uint8_t depth = tree.depth(leaves);
-
-	return visitor::visit(dstart, dend, depth);
+	return visitor::visit(dstart, dend, maxblocks);
 }
 
 // read a node and write its hash to the parent

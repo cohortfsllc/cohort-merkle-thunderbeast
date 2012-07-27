@@ -9,8 +9,12 @@ using namespace cohort;
 
 
 // visit all nodes associated with blocks in range [dstart, dend]
-bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
+bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 {
+	uint64_t leaves = maxblocks / tree.k +
+		(maxblocks % tree.k ? 1 : 0);
+	uint8_t maxdepth = tree.depth(leaves);
+
 	// allocate the state stack, whose size is bounded by maxdepth
 	std::vector<struct state> stack;
 	try {
@@ -24,7 +28,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 	root.node = tree.root(maxdepth);
 	root.parent = -1ULL;
 	root.bstart = 0;
-	root.bend = tree.leaves(maxdepth) - 1;
+	root.bend = maxblocks;
 	root.dstart = dstart;
 	root.dend = dend + 1;
 	root.dirty = 0;
@@ -76,6 +80,9 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 						child.node = tree.child_index(child.parent,
 								child.position, node.cnodes, child.cnodes);
 
+						child.bstart = node.bstart + child.position * node.cleaves;
+						child.bend = std::min(child.bstart + node.cleaves, node.bend);
+
 						if (!visit_node(child, depth - 1))
 							return false;
 					}
@@ -95,7 +102,7 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint8_t maxdepth)
 
 				// calculate which blocks are under this node
 				child.bstart = node.bstart + child.position * node.cleaves;
-				child.bend = child.bstart + node.cleaves;
+				child.bend = std::min(child.bstart + node.cleaves, node.bend);
 
 				// intersect with the parent's dirty block range
 				child.dstart = std::max(child.bstart, node.dstart);

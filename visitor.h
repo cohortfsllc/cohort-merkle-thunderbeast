@@ -21,7 +21,7 @@ namespace cohort {
 			}
 
 			// visit all nodes associated with blocks in range [dstart, dend]
-			bool visit(uint64_t dstart, uint64_t dend, uint8_t depth);
+			bool visit(uint64_t dstart, uint64_t dend, uint64_t maxblocks);
 
 		protected:
 			// state kept on a stack to simulate a recursive algorithm
