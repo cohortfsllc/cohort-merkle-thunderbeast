@@ -78,7 +78,7 @@ namespace cohort {
 			// size: return the number of nodes in a tree of the given depth.
 			// each level multiplies the node count by k and adds 1.
 			// this can be simplified into the sum, over i=0 to depth-1, of k^i
-			uint64_t size(uint64_t depth) const
+			uint64_t size(uint8_t depth) const
 			{
 				// the summation can be further reduced to (1 - k^depth) / (1 - k),
 				// but overflows on a greater range of values for 'depth'
@@ -91,13 +91,13 @@ namespace cohort {
 			}
 
 			// return the root node index, given the depth of the tree
-			uint64_t root(uint64_t depth) const
+			uint64_t root(uint8_t depth) const
 			{
 				return depth <= 1 ? 0 : size(depth - 1);
 			}
 
 			// return the number of leaves, given the depth of the tree
-			uint64_t leaves(uint64_t depth) const
+			uint64_t leaves(uint8_t depth) const
 			{
 				return math::powi(k, depth);
 			}

@@ -32,7 +32,6 @@ namespace cohort {
 				uint64_t dstart, dend; // bounds of dirty blocks under this node
 				uint64_t cnodes; // number of nodes under each child
 				uint64_t cleaves; // number of leaves under each child
-				uint64_t dirty; // bitmask of children traversed. XXX: only supports k <= 64
 				uint8_t progress; // number of children processed
 				uint8_t position; // child's position under parent node [0, k-1]
 			};

@@ -31,7 +31,6 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 	root.bend = maxblocks;
 	root.dstart = dstart;
 	root.dend = dend + 1;
-	root.dirty = 0;
 	root.progress = 0;
 	root.position = 0;
 
@@ -67,21 +66,25 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 			struct state &child = stack[depth-2];
 			child.parent = node.node;
 			child.progress = 0;
-			child.dirty = 0;
 
 			if (node.progress == tree.k)
 			{
 				// all child nodes have been processed
 				for (child.position = 0; child.position < tree.k; child.position++)
 				{
-					// calculate hash for any dirty children
-					if (node.dirty & (1ULL << child.position))
+					// calculate which blocks are under this node
+					child.bstart = node.bstart + child.position * node.cleaves;
+					child.bend = std::min(child.bstart + node.cleaves, node.bend);
+
+					// intersect with the parent's dirty block range
+					child.dstart = std::max(child.bstart, node.dstart);
+					child.dend = std::min(child.bend, node.dend);
+
+					if (child.dstart < child.dend)
 					{
+						// calculate hash for any dirty children
 						child.node = tree.child_index(child.parent,
 								child.position, node.cnodes, child.cnodes);
-
-						child.bstart = node.bstart + child.position * node.cleaves;
-						child.bend = std::min(child.bstart + node.cleaves, node.bend);
 
 						if (!visit_node(child, depth - 1))
 							return false;
@@ -114,7 +117,6 @@ bool visitor::visit(uint64_t dstart, uint64_t dend, uint64_t maxblocks)
 					child.node = tree.child_index(child.parent,
 							child.position, node.cnodes, child.cnodes);
 					depth--;
-					node.dirty |= (1ULL << child.position);
 					break;
 				}
 			}
