@@ -24,53 +24,14 @@ int merkle_update(struct merkle_context *context,
 			from_block, to_block, total_blocks);
 }
 
-
-static int read_at(int fd, off_t offset, unsigned char *buffer, size_t length)
-{
-	ssize_t bytes;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		fprintf(stderr, "update: lseek(%lu) failed "
-				"with error %d\n", offset, errno);
-		return errno;
-	}
-	bytes = read(fd, buffer, length);
-	if (bytes == -1) {
-		fprintf(stderr, "update: read() failed with error %d\n", errno);
-		return errno;
-	}
-	/* zero-fill the remaining bytes */
-	while (bytes < (ssize_t)length)
-		buffer[bytes++] = 0;
-	return 0;
-}
-
-static int write_at(int fd, off_t offset, unsigned char *buffer, size_t length)
-{
-	ssize_t bytes;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		fprintf(stderr, "update: lseek(%lu) failed "
-				"with error %d\n", offset, errno);
-		return errno;
-	}
-	while (length) {
-		bytes = write(fd, buffer, length);
-		if (bytes == -1) {
-			fprintf(stderr, "update: write() failed with error %d\n", errno);
-			return errno;
-		}
-		length -= bytes;
-		buffer += bytes;
-	}
-	return 0;
-}
-
 /* read a node and write its hash to the parent */
 int update_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
 	struct merkle_context *context =
 		(struct merkle_context*)user;
-	uint64_t read_offset = SHA_DIGEST_LENGTH * (node->node * context->k + 1);
+	uint64_t read_offset = SHA_DIGEST_LENGTH *
+		(node->node * context->k + 1);
 	uint64_t write_offset = node->parent == -1ULL ? 0 : SHA_DIGEST_LENGTH *
 		(node->parent * context->k + node->position + 1);
 	unsigned char digest[SHA_DIGEST_LENGTH];
@@ -129,4 +90,46 @@ int update_leaf(const struct merkle_state *node, uint64_t block,
 	/* write the hash to the leaf node */
 	return write_at(context->fd_out, write_offset,
 			digest, SHA_DIGEST_LENGTH);
+}
+
+
+/* common functions for file i/o */
+int read_at(int fd, off_t offset, unsigned char *buffer, size_t length)
+{
+	ssize_t bytes;
+	if (lseek(fd, offset, SEEK_SET) == -1) {
+		fprintf(stderr, "lseek(%lu) failed with error %d\n",
+				offset, errno);
+		return errno;
+	}
+	bytes = read(fd, buffer, length);
+	if (bytes == -1) {
+		fprintf(stderr, "read() failed with error %d\n", errno);
+		return errno;
+	}
+	/* zero-fill the remaining bytes */
+	while (bytes < (ssize_t)length)
+		buffer[bytes++] = 0;
+	return 0;
+}
+
+int write_at(int fd, off_t offset, unsigned char *buffer, size_t length)
+{
+	ssize_t bytes;
+	if (lseek(fd, offset, SEEK_SET) == -1) {
+		fprintf(stderr, "lseek(%lu) failed with error %d\n",
+				offset, errno);
+		return errno;
+	}
+	while (length) {
+		bytes = write(fd, buffer, length);
+		if (bytes == -1) {
+			fprintf(stderr, "write() failed with error %d\n",
+					errno);
+			return errno;
+		}
+		length -= bytes;
+		buffer += bytes;
+	}
+	return 0;
 }

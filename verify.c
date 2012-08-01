@@ -6,6 +6,7 @@
 #include <openssl/sha.h>
 
 #include "merkle.h"
+#include "update.h"
 #include "visitor.h"
 
 
@@ -28,27 +29,6 @@ int merkle_verify(struct merkle_context *context,
 	return merkle_visit(&visitor, context->k,
 			from_block, to_block, maxblocks);
 }
-
-
-static int read_at(int fd, off_t offset, unsigned char *buffer, size_t length)
-{
-	ssize_t bytes;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		fprintf(stderr, "verify: lseek(%lu) failed "
-				"with error %d\n", offset, errno);
-		return errno;
-	}
-	bytes = read(fd, buffer, length);
-	if (bytes == -1) {
-		fprintf(stderr, "verify: read() failed with error %d\n", errno);
-		return errno;
-	}
-	/* zero-fill the remaining bytes */
-	while (bytes < (ssize_t)length)
-		buffer[bytes++] = 0;
-	return 0;
-}
-
 
 /* read a node and compare its hash with the parent */
 static int verify_node(const struct merkle_state *node,

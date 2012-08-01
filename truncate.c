@@ -30,28 +30,6 @@ int merkle_truncate(struct merkle_context *context,
 			new_last_block, new_last_block, new_last_block + 1);
 }
 
-
-static int write_at(int fd, off_t offset, unsigned char *buffer, size_t length)
-{
-	ssize_t bytes;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		fprintf(stderr, "truncate: lseek(%lu) failed "
-				"with error %d\n", offset, errno);
-		return errno;
-	}
-	while (length) {
-		bytes = write(fd, buffer, length);
-		if (bytes == -1) {
-			fprintf(stderr, "truncate: write() failed "
-					"with error %d\n", errno);
-			return errno;
-		}
-		length -= bytes;
-		buffer += bytes;
-	}
-	return 0;
-}
-
 /* rehash the child node, and zero any parent hashes after */
 static int truncate_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
