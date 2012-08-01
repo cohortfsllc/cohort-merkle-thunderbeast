@@ -1,23 +1,15 @@
-CC=g++
-CFLAGS=-I. -std=c++0x -Wall
-LDFLAGS=-lcrypto
+CC=gcc
+CFLAGS=-I. -Wall -g -ggdb
+LDFLAGS=-lcrypto -lm
 
-HEADERS=block_reader.h hash_file.h hash_tree.h hasher.h updater.h visitor.h
-OBJ=truncator.o updater.o verifier.o visitor.o
+HEADERS=merkle.h operations.h tree.h visitor.h
+OBJ=truncate.o update.o verify.o visitor.o
 
 %.o: %.cpp $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-all: merkle runtests
-
 merkle: merkle.o $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
-runtests: test.o
-	$(CC) -o $@ $^ $(CFLAGS)
-
-test: runtests
-	./runtests
-
 clean:
-	rm -f merkle runtests *.o
+	rm -f merkle *.o
