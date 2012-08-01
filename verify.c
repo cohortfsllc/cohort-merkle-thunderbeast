@@ -5,7 +5,7 @@
 
 #include <openssl/sha.h>
 
-#include "operations.h"
+#include "merkle.h"
 #include "visitor.h"
 
 
@@ -17,7 +17,7 @@ static int verify_leaf(const struct merkle_state *node, uint64_t block,
 
 /* verify the checksums of all blocks in the given range,
  * along with all associated ancestors */
-int merkle_verify(struct merkle_op_context *context,
+int merkle_verify(struct merkle_context *context,
 		uint64_t from_block, uint64_t to_block, uint64_t maxblocks)
 {
 	struct merkle_visitor visitor = {
@@ -33,14 +33,14 @@ int merkle_verify(struct merkle_op_context *context,
 static int read_at(int fd, off_t offset, unsigned char *buffer, size_t length)
 {
 	ssize_t bytes;
-
 	if (lseek(fd, offset, SEEK_SET) == -1) {
-		fprintf(stderr, "update: lseek() failed with error %d\n", errno);
+		fprintf(stderr, "verify: lseek(%lu) failed "
+				"with error %d\n", offset, errno);
 		return errno;
 	}
 	bytes = read(fd, buffer, length);
 	if (bytes == -1) {
-		fprintf(stderr, "update: read() failed with error %d\n", errno);
+		fprintf(stderr, "verify: read() failed with error %d\n", errno);
 		return errno;
 	}
 	/* zero-fill the remaining bytes */
@@ -54,15 +54,14 @@ static int read_at(int fd, off_t offset, unsigned char *buffer, size_t length)
 static int verify_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	uint64_t read_offset = SHA_DIGEST_LENGTH *
 		(node->node * context->k + 1);
 	uint64_t write_offset = node->parent == -1ULL ? 0 : SHA_DIGEST_LENGTH *
 		(node->parent * context->k + node->position + 1);
 	unsigned char digest[SHA_DIGEST_LENGTH] = { 0 };
 	SHA_CTX hash;
-	uint8_t i;
 	int status;
 
 	/* read the hashes from the child node */
@@ -75,8 +74,9 @@ static int verify_node(const struct merkle_state *node,
 		/* check for zeroes outside of the valid range. the parent
 		 * hash comparison won't catch this, because it generates
 		 * the hash out of the file itself */
-		i = (node->bend - node->bstart) / node->cleaves +
-			((node->bend - node->bstart) % node->cleaves ? 1 : 0);
+		uint64_t blocks = node->bend - node->bstart;
+		uint8_t i = blocks / node->cleaves +
+			(blocks % node->cleaves ? 1 : 0);
 		for (; i < context->k; i++) {
 			const unsigned char *buffer = context->node_buffer +
 				i * SHA_DIGEST_LENGTH;
@@ -96,17 +96,18 @@ static int verify_node(const struct merkle_state *node,
 		}
 	}
 
-	/* calculate the hash */
+	/* compute the node hash */
 	SHA1_Init(&hash);
 	SHA1_Update(&hash, context->node_buffer, context->node_size);
 	SHA1_Final(digest, &hash);
 
-	/* compare with the parent node */
+	/* read the expected node hash from its parent */
 	status = read_at(context->fd_out, write_offset,
 			context->node_buffer, SHA_DIGEST_LENGTH);
 	if (status)
 		return status;
 
+	/* compare the node hash with its expected parent hash */
 	if (memcmp(digest, context->node_buffer, SHA_DIGEST_LENGTH)) {
 		fprintf(stderr, "%*snode %lu at %lu hash does not match "
 				"node %lu.%u at offset %lu\n",
@@ -127,8 +128,8 @@ static int verify_node(const struct merkle_state *node,
 static int verify_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
 	uint64_t write_offset = SHA_DIGEST_LENGTH *
 		(node->node * context->k + position + 1);
@@ -142,16 +143,18 @@ static int verify_leaf(const struct merkle_state *node, uint64_t block,
 	if (status)
 		return status;
 
+	/* compute the block hash */
 	SHA1_Init(&hash);
 	SHA1_Update(&hash, context->block_buffer, context->block_size);
 	SHA1_Final(digest, &hash);
 
-	/* compare with the parent node */
+	/* read the expected block hash from the leaf node */
 	status = read_at(context->fd_out, write_offset,
 			context->node_buffer, SHA_DIGEST_LENGTH);
 	if (status)
 		return status;
 
+	/* compare the block hash with its expected leaf hash */
 	if (memcmp(digest, context->node_buffer, SHA_DIGEST_LENGTH)) {
 		fprintf(stderr, "block %lu hash does not match "
 				"node %lu.%u at offset %lu\n",

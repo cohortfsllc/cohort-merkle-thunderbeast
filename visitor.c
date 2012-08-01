@@ -16,7 +16,7 @@ static void child_bounds(const struct merkle_state *node,
 	child->bstart = node->bstart + child->position * node->cleaves;
 	child->bend = min(child->bstart + node->cleaves, node->bend);
 
-	/* intersect with the parent's dirty block range */
+	/* intersect with the parent's requested block range */
 	child->dstart = max(child->bstart, node->dstart);
 	child->dend = min(child->bend, node->dend);
 }
@@ -36,8 +36,8 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 	stack = (struct merkle_state*)calloc(maxdepth,
 			sizeof(struct merkle_state));
 	if (stack == NULL) {
-		fprintf(stderr, "merkle_visit() failed to allocate stack\n");
 		status = errno;
+		fprintf(stderr, "merkle_visit() failed to allocate stack\n");
 		goto out;
 	}
 
@@ -62,7 +62,7 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 	while (depth <= maxdepth) {
 		node = &stack[depth-1];
 
-		/* base case: visit each file block of the leaf node */
+		/* base case: visit each requested file block of the leaf node */
 		if (depth == 1) {
 			for (i = node->dstart; i < node->dend; i++) {
 				status = visitor->visit_leaf(node, i,
@@ -81,18 +81,18 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 			if (node->progress == k) {
 				/* all children have been processed */
 				for (child->position = 0; child->position < k; child->position++) {
+					/* visit any requested children */
 					child_bounds(node, child);
-					if (child->dstart < child->dend)
-					{
-						/* calculate hash for any dirty children */
-						child->node = merkle_child(child->parent,
-								child->position, node->cnodes, child->cnodes);
+					if (child->dstart >= child->dend)
+						continue;
 
-						status = visitor->visit_node(child,
-								depth-1, visitor->user);
-						if (status)
-							goto out_free;
-					}
+					child->node = merkle_child(child->parent,
+							child->position, node->cnodes, child->cnodes);
+
+					status = visitor->visit_node(child,
+							depth-1, visitor->user);
+					if (status)
+						goto out_free;
 				}
 
 				/* traverse back up to parent node */
@@ -107,19 +107,19 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 			{
 				child->position = node->progress++;
 				child_bounds(node, child);
-				if (child->dstart < child->dend)
-				{
-					/* traverse down to child node */
-					child->node = merkle_child(child->parent,
-							child->position, node->cnodes, child->cnodes);
-					depth--;
-					break;
-				}
+				if (child->dstart >= child->dend)
+					continue;
+
+				/* traverse down to child node */
+				child->node = merkle_child(child->parent,
+						child->position, node->cnodes, child->cnodes);
+				depth--;
+				break;
 			}
 		}
 	}
 
-	/* final hash of root node */
+	/* visit root node */
 	status = visitor->visit_node(node, depth, visitor->user);
 out_free:
 	free(stack);

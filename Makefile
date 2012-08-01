@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-I. -Wall -g -ggdb
 LDFLAGS=-lcrypto -lm
 
-HEADERS=merkle.h operations.h tree.h visitor.h
+HEADERS=merkle.h tree.h visitor.h update.h
 OBJ=truncate.o update.o verify.o visitor.o
 
 %.o: %.cpp $(HEADERS)

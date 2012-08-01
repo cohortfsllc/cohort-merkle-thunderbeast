@@ -10,7 +10,7 @@
 
 #include <openssl/sha.h>
 
-#include "operations.h"
+#include "merkle.h"
 
 
 int usage(char *name)
@@ -67,7 +67,7 @@ static int update_range(struct cmd_options *options, uint64_t blocks)
  * write the merkle tree to the output file */
 static int hash_write(struct cmd_options *options)
 {
-	struct merkle_op_context update;
+	struct merkle_context update;
 	struct stat stat;
 	uint64_t total_blocks;
 	int status;
@@ -158,7 +158,7 @@ out:
  * write an updated hash tree file */
 static int hash_truncate(struct cmd_options *options)
 {
-	struct merkle_op_context truncate;
+	struct merkle_context truncate;
 	struct stat stat;
 	uint64_t total_blocks, new_size;
 	int status;
@@ -264,7 +264,7 @@ out:
  * compare the generated hashes with the hash tree file */
 static int hash_verify(struct cmd_options *options)
 {
-	struct merkle_op_context verify;
+	struct merkle_context verify;
 	struct stat stat;
 	uint64_t total_blocks;
 	int status;

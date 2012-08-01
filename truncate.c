@@ -4,7 +4,8 @@
 
 #include <openssl/sha.h>
 
-#include "operations.h"
+#include "merkle.h"
+#include "update.h"
 #include "visitor.h"
 
 
@@ -14,7 +15,9 @@ static int truncate_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user);
 
 
-int merkle_truncate(struct merkle_op_context *context,
+/* update the hash tree to reflect the given new last block,
+ * truncating the hash file and regenerating the root checksum. */
+int merkle_truncate(struct merkle_context *context,
 		uint64_t new_last_block)
 {
 	struct merkle_visitor visitor = {
@@ -49,19 +52,19 @@ static int write_at(int fd, off_t offset, unsigned char *buffer, size_t length)
 	return 0;
 }
 
-/* read a node and write its hash to the parent */
+/* rehash the child node, and zero any parent hashes after */
 static int truncate_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	unsigned char digest[SHA_DIGEST_LENGTH] = { 0 };
 	uint64_t write_offset;
 	uint8_t i;
 	int status;
 
 	/* rehash this node into its parent */
-	status = merkle_update_node(node, depth, user);
+	status = update_node(node, depth, user);
 	if (status)
 		return status;
 
@@ -88,19 +91,19 @@ static int truncate_node(const struct merkle_state *node,
 	return 0;
 }
 
-/* read a block and write its hash to the given node */
+/* rehash the new last block, and truncate the output file */
 static int truncate_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	uint64_t truncate_offset = SHA_DIGEST_LENGTH *
 		(node->node * context->k + position + 2);
 	int status;
 
 	/* if truncation was not on a block boundary, update this block */
 	if (context->partial) {
-		status = merkle_update_leaf(node, block, position, user);
+		status = update_leaf(node, block, position, user);
 		if (status)
 			return status;
 	}

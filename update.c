@@ -4,17 +4,20 @@
 
 #include <openssl/sha.h>
 
-#include "operations.h"
+#include "merkle.h"
+#include "update.h"
 #include "visitor.h"
 
 
-int merkle_update(struct merkle_op_context *context,
+/* update the hashes for dirty blocks in the given range,
+ * along with all associated ancestors */
+int merkle_update(struct merkle_context *context,
 		uint64_t from_block, uint64_t to_block,
 		uint64_t total_blocks)
 {
 	struct merkle_visitor visitor = {
-		merkle_update_node,
-		merkle_update_leaf,
+		update_node,
+		update_leaf,
 		context
 	};
 	return merkle_visit(&visitor, context->k,
@@ -62,11 +65,11 @@ static int write_at(int fd, off_t offset, unsigned char *buffer, size_t length)
 }
 
 /* read a node and write its hash to the parent */
-int merkle_update_node(const struct merkle_state *node,
+int update_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	uint64_t read_offset = SHA_DIGEST_LENGTH * (node->node * context->k + 1);
 	uint64_t write_offset = node->parent == -1ULL ? 0 : SHA_DIGEST_LENGTH *
 		(node->parent * context->k + node->position + 1);
@@ -96,11 +99,11 @@ int merkle_update_node(const struct merkle_state *node,
 }
 
 /* read a block and write its hash to the given leaf node */
-int merkle_update_leaf(const struct merkle_state *node, uint64_t block,
+int update_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user)
 {
-	struct merkle_op_context *context =
-		(struct merkle_op_context*)user;
+	struct merkle_context *context =
+		(struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
 	uint64_t write_offset = SHA_DIGEST_LENGTH *
 		(node->node * context->k + position + 1);

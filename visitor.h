@@ -4,12 +4,12 @@
 #include <stdint.h>
 
 
-/* node state kept on a stack to simulate a recursive traversal */
+/* node state passed to merkle_visitor callbacks */
 struct merkle_state
 {
 	uint64_t node, parent; /* index of the node and its parent */
 	uint64_t bstart, bend; /* bounds of all blocks under this node */
-	uint64_t dstart, dend; /* bounds of dirty blocks under this node */
+	uint64_t dstart, dend; /* bounds of requested blocks under this node */
 	uint64_t cnodes; /* number of nodes under each child */
 	uint64_t cleaves; /* number of leaves under each child */
 	uint8_t progress; /* number of children processed [0, k] */
@@ -28,8 +28,9 @@ struct merkle_visitor
 	void *user; /* user data passed to each callback */
 };
 
-/* perform a depth-first postorder traversal of the tree, ignoring nodes
- * that aren't in the requested block range */
+/* perform a depth-first postorder traversal of the tree, ignoring
+ * nodes that aren't in the requested block range. total_blocks is
+ * required to locate the root node */
 int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 		uint64_t from_block, uint64_t to_block,
 		uint64_t total_blocks);
