@@ -73,49 +73,50 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 
 			/* traverse back up to parent node */
 			depth++;
-		} else {
-			child = &stack[depth-2];
-			child->parent = node->node;
-			child->progress = 0;
+			continue;
+		}
 
-			if (node->progress == k) {
-				/* all children have been processed */
-				for (child->position = 0; child->position < k; child->position++) {
-					/* visit any requested children */
-					child_bounds(node, child);
-					if (child->dstart >= child->dend)
-						continue;
+		child = &stack[depth-2];
+		child->parent = node->node;
+		child->progress = 0;
 
-					child->node = merkle_child(child->parent,
-							child->position, node->cnodes, child->cnodes);
-
-					status = visitor->visit_node(child,
-							depth-1, visitor->user);
-					if (status)
-						goto out_free;
-				}
-
-				/* traverse back up to parent node */
-				depth++;
-				continue;
-			}
-
-			/* consider each child node. remember our progress
-			 * so we can traverse a single child, instead of having
-			 * to push them all to the stack at once */
-			while (node->progress < k)
-			{
-				child->position = node->progress++;
+		if (node->progress == k) {
+			/* all children have been traversed */
+			for (child->position = 0; child->position < k; child->position++) {
+				/* visit any children in the requested range */
 				child_bounds(node, child);
 				if (child->dstart >= child->dend)
 					continue;
 
-				/* traverse down to child node */
 				child->node = merkle_child(child->parent,
 						child->position, node->cnodes, child->cnodes);
-				depth--;
-				break;
+
+				status = visitor->visit_node(child,
+						depth-1, visitor->user);
+				if (status)
+					goto out_free;
 			}
+
+			/* traverse back up to parent node */
+			depth++;
+			continue;
+		}
+
+		/* consider each child node. remember our progress
+		 * so we can traverse a single child, instead of having
+		 * to push them all to the stack at once */
+		while (node->progress < k)
+		{
+			child->position = node->progress++;
+			child_bounds(node, child);
+			if (child->dstart >= child->dend)
+				continue;
+
+			/* traverse down to child node */
+			child->node = merkle_child(child->parent,
+					child->position, node->cnodes, child->cnodes);
+			depth--;
+			break;
 		}
 	}
 
