@@ -386,6 +386,7 @@ int parse(struct cmd_options *options, int argc, char *argv[])
 				return -1;
 			}
 			argc -= 2;
+			argv += 2;
 		} else if (strcmp(argv[0], "-h") == 0) {
 			if (argc < 2) {
 				fprintf(stderr, "Option -h missing argument.\n");
