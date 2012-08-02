@@ -9,6 +9,10 @@
 #include "visitor.h"
 
 
+static int update_root(const struct merkle_state *node,
+		uint8_t depth, void *user);
+
+
 /* update the hashes for dirty blocks in the given range,
  * along with all associated ancestors */
 int merkle_update(struct merkle_context *context,
@@ -16,20 +20,50 @@ int merkle_update(struct merkle_context *context,
 		uint64_t total_blocks)
 {
 	struct merkle_visitor visitor = {
-		update_node,
 		update_leaf,
+		update_node,
+		update_root,
 		context
 	};
 	return merkle_visit(&visitor, context->k,
 			from_block, to_block, total_blocks);
 }
 
+
+/* write the root checksum and truncate the hash file */
+static int update_root(const struct merkle_state *node,
+		uint8_t depth, void *user)
+{
+	const struct merkle_context *context =
+		(const struct merkle_context*)user;
+	uint64_t truncate_offset = context->hash_size *
+		(node->parent * context->k + 1);
+	int status;
+
+	/* write the root checksum */
+	status = update_node(node, depth, user);
+	if (status)
+		return status;
+
+	/* truncate the hash file directly after the root checksum */
+	if (ftruncate(context->fd_out, truncate_offset) == -1) {
+		status = errno;
+		fprintf(stderr, "ftruncate(%lu) failed with error %u\n",
+				truncate_offset, status);
+		return status;
+	}
+
+	if (context->verbose)
+		printf("truncated hash file at %lu\n", truncate_offset);
+	return 0;
+}
+
 /* read a node and write its hash to the parent */
 int update_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
-	struct merkle_context *context =
-		(struct merkle_context*)user;
+	const struct merkle_context *context =
+		(const struct merkle_context*)user;
 	uint64_t read_offset = context->hash_size * node->node * context->k;
 	uint64_t write_offset = context->hash_size *
 		(node->parent * context->k + node->position);
@@ -62,8 +96,8 @@ int update_node(const struct merkle_state *node,
 int update_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user)
 {
-	struct merkle_context *context =
-		(struct merkle_context*)user;
+	const struct merkle_context *context =
+		(const struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
 	uint64_t write_offset = context->hash_size *
 		(node->node * context->k + position);

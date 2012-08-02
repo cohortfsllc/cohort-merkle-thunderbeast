@@ -150,7 +150,7 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 	}
 
 	/* visit root node */
-	status = visitor->visit_node(node, depth, visitor->user);
+	status = visitor->visit_root(node, depth, visitor->user);
 out_free:
 	free(stack);
 	return status;

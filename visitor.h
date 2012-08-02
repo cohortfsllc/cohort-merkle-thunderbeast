@@ -19,10 +19,12 @@ struct merkle_state
 struct merkle_visitor
 {
 	/* callbacks functions for visitor implementation */
-	int (*visit_node)(const struct merkle_state *node,
-			uint8_t depth, void *user);
 	int (*visit_leaf)(const struct merkle_state *node, uint64_t block,
 			uint8_t position, void *user);
+	int (*visit_node)(const struct merkle_state *node,
+			uint8_t depth, void *user);
+	int (*visit_root)(const struct merkle_state *node,
+			uint8_t depth, void *user);
 
 	void *user; /* user data passed to each callback */
 };

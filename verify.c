@@ -10,10 +10,10 @@
 #include "visitor.h"
 
 
-static int verify_node(const struct merkle_state *node,
-		uint8_t depth, void *user);
 static int verify_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user);
+static int verify_node(const struct merkle_state *node,
+		uint8_t depth, void *user);
 
 
 /* verify the checksums of all blocks in the given range,
@@ -22,8 +22,9 @@ int merkle_verify(struct merkle_context *context,
 		uint64_t from_block, uint64_t to_block, uint64_t maxblocks)
 {
 	struct merkle_visitor visitor = {
-		verify_node,
 		verify_leaf,
+		verify_node,
+		verify_node,
 		context
 	};
 	return merkle_visit(&visitor, context->k,
@@ -34,8 +35,8 @@ int merkle_verify(struct merkle_context *context,
 static int verify_node(const struct merkle_state *node,
 		uint8_t depth, void *user)
 {
-	struct merkle_context *context =
-		(struct merkle_context*)user;
+	const struct merkle_context *context =
+		(const struct merkle_context*)user;
 	uint64_t read_offset = context->hash_size * node->node * context->k;
 	uint64_t write_offset = context->hash_size *
 		(node->parent * context->k + node->position);
@@ -104,8 +105,8 @@ static int verify_node(const struct merkle_state *node,
 static int verify_leaf(const struct merkle_state *node, uint64_t block,
 		uint8_t position, void *user)
 {
-	struct merkle_context *context =
-		(struct merkle_context*)user;
+	const struct merkle_context *context =
+		(const struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
 	uint64_t write_offset = context->hash_size *
 		(node->node * context->k + position);
