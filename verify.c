@@ -36,8 +36,8 @@ static int verify_node(const struct merkle_state *node,
 {
 	struct merkle_context *context =
 		(struct merkle_context*)user;
-	uint64_t read_offset = SHA_DIGEST_LENGTH * node->node * context->k;
-	uint64_t write_offset = SHA_DIGEST_LENGTH *
+	uint64_t read_offset = context->hash_size * node->node * context->k;
+	uint64_t write_offset = context->hash_size *
 		(node->parent * context->k + node->position);
 	unsigned char digest[SHA_DIGEST_LENGTH] = { 0 };
 	SHA_CTX hash;
@@ -57,19 +57,19 @@ static int verify_node(const struct merkle_state *node,
 		(blocks % node->cleaves ? 1 : 0);
 	for (; i < context->k; i++) {
 		const unsigned char *buffer = context->node_buffer +
-			i * SHA_DIGEST_LENGTH;
+			i * context->hash_size;
 
-		if (memcmp(digest, buffer, SHA_DIGEST_LENGTH)) {
+		if (memcmp(digest, buffer, context->hash_size)) {
 			fprintf(stderr, "%*snode %lu.%u at offset %lu expected "
 					"zeroes\n", 2*depth, "", node->node, i,
-					read_offset + i * SHA_DIGEST_LENGTH);
+					read_offset + i * context->hash_size);
 			return -1;
 		}
 
 		if (context->verbose)
 			printf("%*snode %lu.%u at %lu verified zeroes\n",
 					2*depth, "", node->node, i,
-					read_offset + i * SHA_DIGEST_LENGTH);
+					read_offset + i * context->hash_size);
 	}
 
 	/* compute the node hash */
@@ -79,12 +79,12 @@ static int verify_node(const struct merkle_state *node,
 
 	/* read the expected node hash from its parent */
 	status = read_at(context->fd_out, write_offset,
-			context->node_buffer, SHA_DIGEST_LENGTH);
+			context->node_buffer, context->hash_size);
 	if (status)
 		return status;
 
 	/* compare the node hash with its expected parent hash */
-	if (memcmp(digest, context->node_buffer, SHA_DIGEST_LENGTH)) {
+	if (memcmp(digest, context->node_buffer, context->hash_size)) {
 		fprintf(stderr, "%*snode %lu at %lu hash does not match "
 				"node %lu.%u at offset %lu\n",
 				2*depth, "", node->node, read_offset,
@@ -107,7 +107,7 @@ static int verify_leaf(const struct merkle_state *node, uint64_t block,
 	struct merkle_context *context =
 		(struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
-	uint64_t write_offset = SHA_DIGEST_LENGTH *
+	uint64_t write_offset = context->hash_size *
 		(node->node * context->k + position);
 	unsigned char digest[SHA_DIGEST_LENGTH];
 	SHA_CTX hash;
@@ -126,12 +126,12 @@ static int verify_leaf(const struct merkle_state *node, uint64_t block,
 
 	/* read the expected block hash from the leaf node */
 	status = read_at(context->fd_out, write_offset,
-			context->node_buffer, SHA_DIGEST_LENGTH);
+			context->node_buffer, context->hash_size);
 	if (status)
 		return status;
 
 	/* compare the block hash with its expected leaf hash */
-	if (memcmp(digest, context->node_buffer, SHA_DIGEST_LENGTH)) {
+	if (memcmp(digest, context->node_buffer, context->hash_size)) {
 		fprintf(stderr, "block %lu hash does not match "
 				"node %lu.%u at offset %lu\n",
 				block, node->node, position, write_offset);

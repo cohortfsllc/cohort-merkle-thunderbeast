@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/sha.h>
-
 #include "merkle.h"
 
 
@@ -26,6 +24,7 @@ int usage(char *name)
 			"           with those from the output file.\n\n"
 			"Options:\n"
 			"  -b #     Size of each file block in bytes. default: 512\n\n"
+			"  -h #     Size of the hash digest. default: 20\n\n"
 			"  -k #     Number of children for each hash tree node. Must be\n"
 			"           a power of 2, between 2 and 128. default: 4\n\n"
 			"  -r # #   Range of file blocks on which to operate, using\n"
@@ -39,10 +38,11 @@ struct cmd_options {
 	const char *operation;
 	const char *source;
 	const char *hash;
-	uint8_t tree_width;
 	uint32_t block_size;
 	uint32_t range_from;
 	uint32_t range_to;
+	uint32_t hash_size;
+	uint8_t tree_width;
 	uint8_t verbose;
 };
 
@@ -75,7 +75,8 @@ static int hash_write(struct cmd_options *options)
 	update.verbose = options->verbose;
 	update.k = options->tree_width;
 	update.block_size = options->block_size;
-	update.node_size = update.k * SHA_DIGEST_LENGTH;
+	update.hash_size = options->hash_size;
+	update.node_size = update.k * update.hash_size;
 
 	/* open input file for read */
 	update.fd_in = open(options->source, O_RDONLY);
@@ -166,7 +167,8 @@ static int hash_truncate(struct cmd_options *options)
 	truncate.verbose = options->verbose;
 	truncate.k = options->tree_width;
 	truncate.block_size = options->block_size;
-	truncate.node_size = truncate.k * SHA_DIGEST_LENGTH;
+	truncate.hash_size = options->hash_size;
+	truncate.node_size = truncate.k * truncate.hash_size;
 	truncate.partial = 0;
 
 	/* open input file for read/write */
@@ -272,7 +274,8 @@ static int hash_verify(struct cmd_options *options)
 	verify.verbose = options->verbose;
 	verify.k = options->tree_width;
 	verify.block_size = options->block_size;
-	verify.node_size = verify.k * SHA_DIGEST_LENGTH;
+	verify.hash_size = options->hash_size;
+	verify.node_size = verify.k * verify.hash_size;
 
 	/* open input file for read */
 	verify.fd_in = open(options->source, O_RDONLY);
@@ -383,6 +386,21 @@ int parse(struct cmd_options *options, int argc, char *argv[])
 				return -1;
 			}
 			argc -= 2;
+		} else if (strcmp(argv[0], "-h") == 0) {
+			if (argc < 2) {
+				fprintf(stderr, "Option -h missing argument.\n");
+				return -1;
+			}
+			options->hash_size = atoi(argv[1]);
+			if (options->hash_size == 0) {
+				fprintf(stderr, "Invalid hash size '%s'.\n", argv[1]);
+				return -1;
+			} else if (options->hash_size > 20) {
+				fprintf(stderr, "Invalid hash size %u > 20\n",
+						options->hash_size);
+				return -1;
+			}
+			argc -= 2;
 			argv += 2;
 		} else if (strcmp(argv[0], "-k") == 0) {
 			if (argc < 2) {
@@ -445,10 +463,11 @@ int main(int argc, char *argv[])
 		NULL,
 		NULL,
 		NULL,
-		4,
 		4096,
 		0,
 		0xFFFFFFFF,
+		20,
+		4,
 		0
 	};
 	if (parse(&options, argc, argv) == 0) {

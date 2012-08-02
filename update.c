@@ -30,8 +30,8 @@ int update_node(const struct merkle_state *node,
 {
 	struct merkle_context *context =
 		(struct merkle_context*)user;
-	uint64_t read_offset = SHA_DIGEST_LENGTH * node->node * context->k;
-	uint64_t write_offset = SHA_DIGEST_LENGTH *
+	uint64_t read_offset = context->hash_size * node->node * context->k;
+	uint64_t write_offset = context->hash_size *
 		(node->parent * context->k + node->position);
 	unsigned char digest[SHA_DIGEST_LENGTH];
 	SHA_CTX hash;
@@ -55,7 +55,7 @@ int update_node(const struct merkle_state *node,
 
 	/* write the hash to the parent node */
 	return write_at(context->fd_out, write_offset,
-			digest, SHA_DIGEST_LENGTH);
+			digest, context->hash_size);
 }
 
 /* read a block and write its hash to the given leaf node */
@@ -65,7 +65,7 @@ int update_leaf(const struct merkle_state *node, uint64_t block,
 	struct merkle_context *context =
 		(struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
-	uint64_t write_offset = SHA_DIGEST_LENGTH *
+	uint64_t write_offset = context->hash_size *
 		(node->node * context->k + position);
 	unsigned char digest[SHA_DIGEST_LENGTH];
 	SHA_CTX hash;
@@ -88,7 +88,7 @@ int update_leaf(const struct merkle_state *node, uint64_t block,
 
 	/* write the hash to the leaf node */
 	return write_at(context->fd_out, write_offset,
-			digest, SHA_DIGEST_LENGTH);
+			digest, context->hash_size);
 }
 
 

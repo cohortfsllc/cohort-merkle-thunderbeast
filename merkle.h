@@ -12,9 +12,10 @@ struct merkle_context {
 	size_t block_size;
 	/* buffer and size for reading nodes from the output file */
 	unsigned char *node_buffer;
-	size_t node_size; /* node size = k * hash size */
+	size_t node_size; /* node size = k * hash_size */
 	int fd_in; /* input file */
 	int fd_out; /* output file */
+	uint8_t hash_size; /* size of hash digest (may be smaller than sha) */
 	uint8_t k; /* number of children per hash tree node */
 	uint8_t verbose; /* verbose output */
 	uint8_t partial; /* truncate that was not on a block boundary */

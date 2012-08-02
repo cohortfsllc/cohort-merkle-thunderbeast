@@ -52,7 +52,7 @@ static int truncate_node(const struct merkle_state *node,
 
 	/* zero parent hashes for any nodes after this one */
 	for (i = node->position + 1; i < context->k; i++) {
-		write_offset = SHA_DIGEST_LENGTH *
+		write_offset = context->hash_size *
 			(node->parent * context->k + i);
 		if (context->verbose)
 			printf("%*snode %lu wrote zeroes to "
@@ -61,7 +61,7 @@ static int truncate_node(const struct merkle_state *node,
 					node->parent, i, write_offset);
 
 		status = write_at(context->fd_out, write_offset,
-			       	digest, SHA_DIGEST_LENGTH);
+			       	digest, context->hash_size);
 		if (status)
 			return status;
 	}
@@ -75,7 +75,7 @@ static int truncate_leaf(const struct merkle_state *node, uint64_t block,
 {
 	struct merkle_context *context =
 		(struct merkle_context*)user;
-	uint64_t truncate_offset = SHA_DIGEST_LENGTH *
+	uint64_t truncate_offset = context->hash_size *
 		(node->node * context->k + position + 1);
 	int status;
 
