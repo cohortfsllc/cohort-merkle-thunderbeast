@@ -36,10 +36,9 @@ static int verify_node(const struct merkle_state *node,
 {
 	struct merkle_context *context =
 		(struct merkle_context*)user;
-	uint64_t read_offset = SHA_DIGEST_LENGTH *
-		(node->node * context->k + 1);
-	uint64_t write_offset = node->parent == -1ULL ? 0 : SHA_DIGEST_LENGTH *
-		(node->parent * context->k + node->position + 1);
+	uint64_t read_offset = SHA_DIGEST_LENGTH * node->node * context->k;
+	uint64_t write_offset = SHA_DIGEST_LENGTH *
+		(node->parent * context->k + node->position);
 	unsigned char digest[SHA_DIGEST_LENGTH] = { 0 };
 	SHA_CTX hash;
 	int status;
@@ -50,30 +49,27 @@ static int verify_node(const struct merkle_state *node,
 	if (status)
 		return status;
 
-	if (node->parent != -1ULL) {
-		/* check for zeroes outside of the valid range. the parent
-		 * hash comparison won't catch this, because it generates
-		 * the hash out of the file itself */
-		uint64_t blocks = node->bend - node->bstart;
-		uint8_t i = blocks / node->cleaves +
-			(blocks % node->cleaves ? 1 : 0);
-		for (; i < context->k; i++) {
-			const unsigned char *buffer = context->node_buffer +
-				i * SHA_DIGEST_LENGTH;
+	/* check for zeroes outside of the valid range. the parent
+	 * hash comparison won't catch this, because it generates
+	 * the hash out of the file itself */
+	uint64_t blocks = node->bend - node->bstart;
+	uint8_t i = blocks / node->cleaves +
+		(blocks % node->cleaves ? 1 : 0);
+	for (; i < context->k; i++) {
+		const unsigned char *buffer = context->node_buffer +
+			i * SHA_DIGEST_LENGTH;
 
-			if (memcmp(digest, buffer, SHA_DIGEST_LENGTH)) {
-				fprintf(stderr, "%*snode %lu at offset %lu expected "
-						"zeroes at node %lu.%u\n",
-						2*depth, "", node->node, read_offset,
-						node->parent, i);
-				return -1;
-			}
-
-			if (context->verbose)
-				printf("%*snode %lu at %lu verified zeroes "
-						"at node %lu.%u\n", 2*depth, "",
-						node->node, read_offset, node->parent, i);
+		if (memcmp(digest, buffer, SHA_DIGEST_LENGTH)) {
+			fprintf(stderr, "%*snode %lu.%u at offset %lu expected "
+					"zeroes\n", 2*depth, "", node->node, i,
+					read_offset + i * SHA_DIGEST_LENGTH);
+			return -1;
 		}
+
+		if (context->verbose)
+			printf("%*snode %lu.%u at %lu verified zeroes\n",
+					2*depth, "", node->node, i,
+					read_offset + i * SHA_DIGEST_LENGTH);
 	}
 
 	/* compute the node hash */
@@ -112,7 +108,7 @@ static int verify_leaf(const struct merkle_state *node, uint64_t block,
 		(struct merkle_context*)user;
 	uint64_t read_offset = block * context->block_size;
 	uint64_t write_offset = SHA_DIGEST_LENGTH *
-		(node->node * context->k + position + 1);
+		(node->node * context->k + position);
 	unsigned char digest[SHA_DIGEST_LENGTH];
 	SHA_CTX hash;
 	int status;

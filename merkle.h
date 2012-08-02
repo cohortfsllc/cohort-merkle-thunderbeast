@@ -12,7 +12,7 @@ struct merkle_context {
 	size_t block_size;
 	/* buffer and size for reading nodes from the output file */
 	unsigned char *node_buffer;
-	size_t node_size; /* node size = k * hash length */
+	size_t node_size; /* node size = k * hash size */
 	int fd_in; /* input file */
 	int fd_out; /* output file */
 	uint8_t k; /* number of children per hash tree node */
@@ -22,7 +22,7 @@ struct merkle_context {
 
 /* update the hashes for dirty blocks in the given range,
  * along with all associated ancestors. total_blocks is
- * required to locate the root node.
+ * required to locate the root checksum.
  * context.fd_out must be opened for write access */
 int merkle_update(struct merkle_context *context,
 		uint64_t from_block, uint64_t to_block,
@@ -36,7 +36,7 @@ int merkle_truncate(struct merkle_context *context,
 
 /* verify the checksums of all blocks in the given range,
  * along with all associated ancestors. total_blocks is
- * required to locate the root node */
+ * required to locate the root checksum */
 int merkle_verify(struct merkle_context *context,
 		uint64_t from_block, uint64_t to_block,
 		uint64_t total_blocks);

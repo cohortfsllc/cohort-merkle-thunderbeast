@@ -47,13 +47,13 @@ static int truncate_node(const struct merkle_state *node,
 		return status;
 
 	/* the root node's parent only has one hash */
-	if (node->parent == -1ULL)
+	if (node->position == 0xFF)
 		return 0;
 
 	/* zero parent hashes for any nodes after this one */
 	for (i = node->position + 1; i < context->k; i++) {
 		write_offset = SHA_DIGEST_LENGTH *
-			(node->parent * context->k + i + 1);
+			(node->parent * context->k + i);
 		if (context->verbose)
 			printf("%*snode %lu wrote zeroes to "
 					"node %lu.%u at offset %lu\n",
@@ -76,7 +76,7 @@ static int truncate_leaf(const struct merkle_state *node, uint64_t block,
 	struct merkle_context *context =
 		(struct merkle_context*)user;
 	uint64_t truncate_offset = SHA_DIGEST_LENGTH *
-		(node->node * context->k + position + 2);
+		(node->node * context->k + position + 1);
 	int status;
 
 	/* if truncation was not on a block boundary, update this block */

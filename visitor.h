@@ -9,7 +9,6 @@ struct merkle_state
 {
 	uint64_t node, parent; /* index of the node and its parent */
 	uint64_t bstart, bend; /* bounds of all blocks under this node */
-	uint64_t dstart, dend; /* bounds of requested blocks under this node */
 	uint64_t cnodes; /* number of nodes under each child */
 	uint64_t cleaves; /* number of leaves under each child */
 	uint8_t progress; /* number of children processed [0, k] */

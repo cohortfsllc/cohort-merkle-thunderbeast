@@ -1,24 +1,42 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
 
 #include "visitor.h"
 #include "tree.h"
 
 
+/* find the leaf node index that corresponds to the given block */
+static uint64_t find_leaf(struct merkle_state *stack,
+		uint8_t k, uint64_t block, uint64_t depth)
+{
+	struct merkle_state *node, *child;
+
+	/* start traversal at the root node */
+	for (;;) {
+		node = &stack[depth-1];
+		if (depth == 1) /* found the leaf node */
+			return node->node;
+
+		child = &stack[depth-2];
+		child->parent = node->node;
+
+		/* choose the child that contains this block */
+		child->position = (block - node->bstart) / node->cleaves;
+		child->bstart = node->bstart + child->position * node->cleaves;
+		child->node = merkle_child(child->parent,
+				child->position, node->cnodes, child->cnodes);
+		depth--;
+	}
+}
+
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 
-static void child_bounds(const struct merkle_state *node,
-		struct merkle_state *child)
+/* returns nonzero when the node intersects the given block bounds */
+static inline int node_in_bounds(const struct merkle_state *node,
+		uint64_t from, uint64_t to)
 {
-	/* calculate which blocks are under this child */
-	child->bstart = node->bstart + child->position * node->cleaves;
-	child->bend = min(child->bstart + node->cleaves, node->bend);
-
-	/* intersect with the parent's requested block range */
-	child->dstart = max(child->bstart, node->dstart);
-	child->dend = min(child->bend, node->dend);
+	return max(node->bstart, from) < min(node->bend, to + 1);
 }
 
 /* visit all nodes associated with blocks in given range */
@@ -26,20 +44,20 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 		uint64_t from_block, uint64_t to_block,
 		uint64_t total_blocks)
 {
-	uint64_t i, leaves = total_blocks / k +
-		(total_blocks % k ? 1 : 0);
+	uint64_t i, leaves;
 	struct merkle_state *stack, *node, *child;
-	uint8_t depth, maxdepth = merkle_depth(k, leaves);
+	uint8_t depth, maxdepth;
 	int status;
 
+	/* calculate the depth required to hold total_blocks */
+	leaves = total_blocks / k + (total_blocks % k ? 1 : 0);
+	maxdepth = merkle_depth(k, leaves);
+
 	/* allocate the state stack, whose size is bounded by maxdepth */
-	stack = (struct merkle_state*)calloc(maxdepth,
+	stack = (struct merkle_state*)malloc(maxdepth *
 			sizeof(struct merkle_state));
-	if (stack == NULL) {
-		status = errno;
-		fprintf(stderr, "merkle_visit() failed to allocate stack\n");
-		goto out;
-	}
+	if (stack == NULL)
+		return errno;
 
 	/* precalculate cnodes and cleaves */
 	stack[0].cnodes = 0;
@@ -52,10 +70,13 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 	/* initialize the root node */
 	node = &stack[maxdepth-1];
 	node->node = stack[maxdepth-1].cnodes;
-	node->parent = -1ULL;
+	node->bstart = 0;
 	node->bend = total_blocks;
-	node->dstart = from_block;
-	node->dend = to_block + 1;
+	node->position = 0;
+	node->progress = 0;
+
+	/* the root's parent is the last leaf node + 1 */
+	node->parent = find_leaf(stack, k, total_blocks - 1, maxdepth) + 1;
 
 	/* start traversal at the root node */
 	depth = maxdepth;
@@ -64,7 +85,8 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 
 		/* base case: visit each requested file block of the leaf node */
 		if (depth == 1) {
-			for (i = node->dstart; i < node->dend; i++) {
+			uint64_t end = min(node->bend, to_block + 1);
+			for (i = max(node->bstart, from_block); i < end; i++) {
 				status = visitor->visit_leaf(node, i,
 						i - node->bstart, visitor->user);
 				if (status)
@@ -83,9 +105,12 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 		if (node->progress == k) {
 			/* all children have been traversed */
 			for (child->position = 0; child->position < k; child->position++) {
-				/* visit any children in the requested range */
-				child_bounds(node, child);
-				if (child->dstart >= child->dend)
+				/* calculate which blocks are under this child */
+				child->bstart = node->bstart + child->position * node->cleaves;
+				child->bend = min(child->bstart + node->cleaves, node->bend);
+
+				/* visit children in the requested range */
+				if (!node_in_bounds(child, from_block, to_block))
 					continue;
 
 				child->node = merkle_child(child->parent,
@@ -108,8 +133,12 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 		while (node->progress < k)
 		{
 			child->position = node->progress++;
-			child_bounds(node, child);
-			if (child->dstart >= child->dend)
+
+			/* calculate which blocks are under this child */
+			child->bstart = node->bstart + child->position * node->cleaves;
+			child->bend = min(child->bstart + node->cleaves, node->bend);
+
+			if (!node_in_bounds(child, from_block, to_block))
 				continue;
 
 			/* traverse down to child node */
@@ -124,6 +153,5 @@ int merkle_visit(const struct merkle_visitor *visitor, uint8_t k,
 	status = visitor->visit_node(node, depth, visitor->user);
 out_free:
 	free(stack);
-out:
 	return status;
 }
